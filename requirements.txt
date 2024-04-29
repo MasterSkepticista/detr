@@ -1,0 +1,8 @@
+tensorflow_cpu==2.13
+tensorflow_datasets
+ml_collections
+flax
+optax
+clu
+jax[cuda12_pip]==0.4.19
+-f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
