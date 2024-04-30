@@ -282,7 +282,7 @@ class BaseModelWithMatching(base_model.BaseModel):
     losses['loss_class'] = normalized_loss_class
 
     if log:
-      # For normalization, we need to have  number of inputs that we do 
+      # For normalization, we need to have  number of inputs that we do
       # prediction for , which is number of examples in the batch times
       # number of boxes (including padded boxes).
       # Note that tgt_labels_onehot.shape = (bs, num_boxes, num_classes)
@@ -290,12 +290,41 @@ class BaseModelWithMatching(base_model.BaseModel):
         batch_num_inputs = batch_weights.sum() * tgt_labels_onehot.shape[-2]
       else:
         batch_num_inputs = np.prod(tgt_labels_onehot.shape[:-1])
-      
+
       # Class accuracy for non-padded (label != 0) one hot labels
       not_padded = tgt_labels_onehot[:, :, 0] == 0
       if batch_weights is not None:
         # Extends `not_padded` by also-masked elements.
         not_padded = not_padded * jnp.expand_dims(batch_weights, axis=1)
+      num_correct_no_pad = model_utils.weighted_correctly_classified(
+          src_log_p[..., 1:], tgt_labels_onehot[..., 1:], weights=not_padded)
+      metrics['class_accuracy_no_pad'] = (num_correct_no_pad, not_padded.sum())
+
+      if not self.config.get('sigmoid_loss', False):
+        num_correct = model_utils.weighted_correctly_classified(
+            src_log_p, tgt_labels_onehot, weights=batch_weights)
+        metrics['class_accuracy'] = (num_correct, batch_num_inputs)
+
+      if 'loss_bbox' not in self.loss_terms_weights:
+        # Prec@1 for classification-only models.
+        if batch_weights is not None:
+          batch_num_inputs = batch_weights.sum()
+        else:
+          batch_num_inputs = jnp.asarray(tgt_labels_onehot.shape[0])
+        max_logits = jnp.max(orig_src_logits, axis=-2)
+        tgt_labels_multihot = jnp.max(orig_tgt_labels_onehot, axis=-2)
+        # Collapse all predictions into one majority class. If it exists,
+        # multi-hot target would have a 1, and 0 otherwise.
+        prec_at_one = model_utils.weighted_top_one_correctly_classified(
+            max_logits[:, 1:],
+            tgt_labels_multihot[:, 1:],
+            weights=batch_weights)
+        metrics['prec@1'] = (prec_at_one, batch_num_inputs)
+
+    # Sum metrics and normalizers over all replicas.
+    for k, v in metrics.items():
+      metrics[k] = model_utils.psum_metric_normalizer(v)
+    return losses, metrics
 
   def _compute_per_example_class_loss(
       self,

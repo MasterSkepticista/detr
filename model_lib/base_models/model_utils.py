@@ -1,10 +1,20 @@
 """Model utils."""
 import functools
-from typing import Optional
+from typing import Optional, Tuple, Union
 
 import jax
 import jax.nn as nn
 import jax.numpy as jnp
+
+
+def psum_metric_normalizer(
+    metrics: Tuple[jnp.ndarray, jnp.ndarray],
+    axis_name: Union[str,
+                     Tuple[str]] = 'batch') -> Tuple[jnp.ndarray, jnp.ndarray]:
+  """Applies psum over the given tuple of (metric, normalizer)."""
+  psumed_metric = jax.lax.psum(jnp.sum(metrics[0]), axis_name=axis_name)
+  psumed_normalizer = jax.lax.psum(jnp.sum(metrics[1]), axis_name=axis_name)
+  return (psumed_metric, psumed_normalizer)
 
 
 def apply_weights(output: jnp.ndarray, weights: jnp.ndarray) -> jnp.ndarray:
@@ -31,6 +41,78 @@ def apply_weights(output: jnp.ndarray, weights: jnp.ndarray) -> jnp.ndarray:
                                      broadcast_dimensions=tuple(
                                          range(weights.ndim)))
   return output * weights
+
+
+def weighted_correctly_classified(
+    logits: jnp.ndarray,
+    one_hot_targets: jnp.ndarray,
+    weights: Optional[jnp.ndarray] = None) -> jnp.ndarray:
+  """Computes weighted number of correctly classified over the given batch.
+  
+  This computes the weighted number of correctly classified examples/pixels in a
+  single, potentially padded minibatch. If the minibatch/inputs is padded (i.e.,
+  it contains null examples/pad pixels) it is assumed that `weights` is a binary
+  mask where 0 indicates that the example/pixel is null/padded. We assume the 
+  trainer will aggregate and divide by the number of samples.
+
+  Args:
+    logits: Output of model in shape [batch, ..., num_classes].
+    one_hot_targets: One hot vector of shape [batch, ..., num_classes].
+    weights: None or array of shape [batch, ...] (rank of one_hot_targets - 1).
+  
+  Returns:
+    The number of correctly classified examples in the given batch.
+  """
+  if logits.ndim != one_hot_targets.ndim:
+    raise ValueError(
+        'Incorrect shapes. Got shape %s logits and %s one_hot_targets' %
+        (str(logits.shape), str(one_hot_targets.shape)))
+  preds = jnp.argmax(logits, axis=-1)
+  targets = jnp.argmax(one_hot_targets, axis=-1)
+  correct = jnp.equal(preds, targets)
+
+  if weights is not None:
+    correct = apply_weights(correct, weights)
+
+  return correct.astype(jnp.int32)
+
+
+def weighted_top_one_correctly_classified(
+    logits: jnp.ndarray,
+    multi_hot_targets: jnp.ndarray,
+    weights: Optional[jnp.ndarray] = None,
+) -> jnp.ndarray:
+  """Computes weighted number of correctly classified given top-1 class.
+  
+  This computes the weighted number of correctly classified examples/pixels in
+  a single, potentially padded minibatch, given top-one prediction. If the 
+  minibatch/inputs is padded (i.e., it contains null examples/pad pixels) it is
+  assumed that weights is a binary mask where 0 indicates that the example/pixel
+  is null/padded. We assume the trainer will aggregate and divide by number of 
+  samples.
+
+  Args:
+    logits: Output of model in shape [batch, ..., num_classes].
+    multi_hot_targets: Multi hot vector of shape [batch, ..., num_classes].
+    weights: None or array of shape [batch, ...] (rank of one_hot_targets - 1).
+
+  Returns:
+    The number of correctly classified examples in the given batch, given top
+    one prediction.
+  """
+  if logits.ndim != multi_hot_targets.ndim:
+    raise ValueError(
+        'Incorrect shapes. Got shape %s logits and %s multi_hot_targets' %
+        (str(logits.shape), str(multi_hot_targets.shape)))
+
+  top1_idx = jnp.argmax(logits, axis=-1)[..., None]
+  # Extracts the label at the highest logit index for each input.
+  top1_correct = jnp.take_along_axis(multi_hot_targets, top1_idx, axis=-1)
+  if weights is not None:
+    top1_correct = apply_weights(top1_correct, weights)
+
+  return top1_correct
+
 
 def apply_label_smoothing(one_hot_targets: jnp.ndarray,
                           label_smoothing: Optional[float]) -> jnp.ndarray:
