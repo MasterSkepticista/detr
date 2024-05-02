@@ -112,3 +112,20 @@ def shard(batch, num_shards=None):
 
   batch = jax.tree_map(_shard, batch)
   return batch
+
+
+def unshard(pytree):
+  """Reshapes all arrays in the pytree from [ndev, bs, ...] to [host_bs, ...].
+  
+  Args:
+    pytree: A pytree of sharded arrays.
+  
+  Returns:
+    Unsharded data.
+  """
+
+  def _unshard_array(array):
+    ndev, bs = array.shape[:2]
+    return array.reshape((ndev * bs) + array.shape[2:])
+
+  return jax.tree_util.tree_map(_unshard_array, pytree)
