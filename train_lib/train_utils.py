@@ -54,6 +54,10 @@ class TrainState:
       return default
 
 
+class TrainingDivergedError(Exception):
+  pass
+
+
 def bind_rng_to_host_device(
     rng: jnp.ndarray,
     axis_name: Union[str, Tuple[str, ...]],

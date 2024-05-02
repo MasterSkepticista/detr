@@ -1,3 +1,4 @@
+import functools
 from concurrent import futures
 from typing import Callable
 
@@ -5,6 +6,7 @@ import flax
 import jax
 import jax.numpy as jnp
 import ml_collections
+import numpy as np
 import optax
 from absl import logging
 from clu import metric_writers
@@ -13,6 +15,7 @@ from flax.training.checkpoints import \
 
 import bv_optax
 import dataset_utils
+import detr_train_utils
 import utils as u
 from models import detr
 from train_lib import pretrain_utils, train_utils
@@ -82,6 +85,75 @@ def get_train_step(apply_fn: Callable, loss_and_metrics_fn: Callable,
   return train_step
 
 
+def get_eval_step(flax_model,
+                  loss_and_metrics_fn,
+                  logits_to_probs_fn,
+                  metrics_only=False,
+                  debug=False):
+  """Runs a single step of evaluation.
+  
+  Note that in this code, the buffer of the second argument (batch) is donated
+  to the computation.
+
+  Args:
+    flax_model: Flax model (an instance of nn.Module).
+    loss_and_metrics_fn: A function that given model predictions, a batch and 
+      parameters of the model calculates the loss as well as metrics.
+    logits_to_probs_fn: Function that takes logits and converts them to probs.
+    metrics_only: bool; Only return metrics.
+    debug: bool; Whether the debug mode is enabled during evaluation.
+      `debug=True` enables model specific logging/storing some values using
+      jax.host_callback.
+  
+  Returns:
+    Eval step function which returns predictions and calculated metrics.
+  """
+
+  def metrics_fn(train_state, batch, predictions):
+    _, metrics = loss_and_metrics_fn(predictions,
+                                     batch,
+                                     model_params=train_state.params)
+    if metrics_only:
+      return None, None, metrics
+
+    pred_probs = logits_to_probs_fn(predictions['pred_logits'])
+    # Collect necessary predictions and target information from all hosts.
+    predictions_out = {
+        'pred_probs': pred_probs,
+        'pred_logits': predictions['pred_logits'],
+        'pred_boxes': predictions['pred_boxes']
+    }
+    labels = {
+        'image/id': batch['label']['image/id'],
+        'size': batch['label']['size'],
+        'orig_size': batch['label']['orig_size']
+    }
+    to_copy = [
+        'labels', 'boxes', 'not_exhaustive_category_ids', 'neg_category_ids'
+    ]
+    for name in to_copy:
+      if name in batch['label']:
+        labels[name] = batch['label'][name]
+
+    targets = {'label': labels, 'batch_mask': batch['batch_mask']}
+
+    predictions_out = jax.lax.all_gather(predictions_out, 'batch')
+    targets = jax.lax.all_gather(targets, 'batch')
+    return targets, predictions_out, metrics
+
+  def eval_step(train_state, batch):
+    variables = {'params': train_state.params, **train_state.model_state}
+    predictions = flax_model.apply(variables,
+                                   batch['inputs'],
+                                   padding_mask=batch['padding_mask'],
+                                   train=False,
+                                   mutable=False,
+                                   debug=debug)
+    return metrics_fn(train_state, batch, predictions)
+
+  return eval_step
+
+
 def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
                        config: ml_collections.ConfigDict, workdir: str,
                        writer: metric_writers.MetricWriter):
@@ -147,6 +219,8 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
     train_state = pretrain_utils.init_from_pretrain_state(
         train_state, bb_train_state, model_prefix_path=['backbone'])
 
+  # Calculate total number of training steps.
+  steps_per_epoch = ntrain_img // config.batch_size
   update_batch_stats = not config.get('freeze_backbone_batch_stats', False)
   if not update_batch_stats:
     if not config.load_pretrained_backbone:
@@ -158,7 +232,6 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
   train_state = flax.jax_utils.replicate(train_state)
   del params
 
-  # Replicate state.
   train_step = get_train_step(
       apply_fn=model.flax_model.apply,
       loss_and_metrics_fn=model.loss_function,  # TODO
@@ -167,3 +240,44 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
   train_step_pmapped = jax.pmap(train_step,
                                 axis_name='batch',
                                 donate_argnums=(0,))
+
+  # Evaluation code.
+  eval_step = get_eval_step(flax_model=model.flax_model,
+                            loss_and_metrics_fn=model.loss_function,
+                            logits_to_probs_fn=model.logits_to_probs,
+                            debug=config.debug_eval)
+  eval_step_pmapped = jax.pmap(eval_step,
+                               axis_name='batch',
+                               donate_argnums=(1,))
+
+  # Ceil rounding such that we include the last incomplete batch.
+  eval_batch_size = config.get('eval_batch_size', config.batch_size)
+  total_eval_steps = int(
+      np.ceil(dataset.meta_data['num_eval_examples'] / eval_batch_size))
+  steps_per_eval = config.get('steps_per_eval') or total_eval_steps
+
+  metrics_normalizer_fn = functools.partial(
+      detr_train_utils.normalize_metrics_summary,
+      object_detection_loss_keys=model.loss_terms_weights.keys())
+
+  def evaluate(train_state, step):
+    """Runs evaluation code."""
+    pass
+
+  #####################################################
+
+  log_eval_steps = config.get('log_eval_steps') or steps_per_epoch
+  log_summary_steps = config.get('log_summary_steps', 25)
+  log_large_summary_steps = config.get('log_large_summary_steps', 0)
+  checkpoint_steps = config.get('checkpoint_steps') or log_eval_steps
+
+  global_metrics_evaluator = None  # Only run eval on the lead host.
+  if lead_host:
+    global_metrics_evaluator = detr_train_utils.DetrGlobalEvaluator(
+        config.dataset_name, annotations_loc=config.annotations_loc)
+
+  train_metrics, extra_training_logs = [], []
+  train_summary, eval_summary = None, None
+
+  info('Starting training loop at step %d.', start_step + 1)
+  report_progress = None
