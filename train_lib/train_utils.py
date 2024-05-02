@@ -1,21 +1,26 @@
 """Common train utils."""
 import functools
 import os
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import (Any, Callable, Dict, List, Mapping, Optional, Sequence,
+                    Tuple, Union)
 
 import flax
 import jax
 import jax.numpy as jnp
 import ml_collections
+import numpy as np
 import optax
 from absl import logging
-from flax import struct
+from clu import metric_writers
+from flax import jax_utils, struct
 from flax.training import checkpoints
 from tensorflow.io import gfile
 
 import dataset_utils
 import input_pipeline
 from common_lib import debug_utils, tree_utils
+
+PyTree = Any
 
 
 @struct.dataclass
@@ -257,3 +262,187 @@ def restore_checkpoint(checkpoint_path: str,
   train_state = checkpoints.restore_checkpoint(checkpoint_path, train_state,
                                                step)
   return train_state, int(train_state.global_step)
+
+
+def normalize_metrics_summary(metrics_summary: Dict[str, Tuple[float, int]],
+                              split: str) -> Dict[str, float]:
+  """Normalize the metrics in summary by its normalizer.
+  
+  Args:
+    metrics_summary: A dictionary mapping metric name to (value, normalizer).
+    split: Split for which we normalize the metrics. Used for logging.
+  
+  Returns:
+    Normalized metrics summary.
+
+  Raises:
+    TrainingDivergedError: Due to observing a NaN in the metrics.
+  """
+  normalized_metrics_summary = {}
+  for key, val in metrics_summary.items():
+    normalized_metrics_summary[key] = val[0] / (val[1] + 1e-9)
+    if np.isnan(normalized_metrics_summary[key]):
+      msg = f'NaN detected in {split}_{key} (Unnormalized values: {val})'
+      if split == 'train':
+        raise TrainingDivergedError(msg)
+      else:
+        logging.error(msg)
+
+  return normalized_metrics_summary
+
+
+def stack_forest(forest: List[PyTree]) -> PyTree:
+  """Transposes a list of dicts to a dict of lists.
+  
+  For example, given `[{'a': 1, 'b': 3}, {'a': 2, 'b': 4}]`, the output is
+  `{'a': [1, 2], 'b': [3, 4]}`.
+
+  Args:
+    A list of dicts.
+  
+  Returns:
+    A dict of lists.
+  """
+  if not forest:
+    return {}
+
+  stack_args = lambda *args: np.stack(args)
+  return jax.tree_util.tree_map(stack_args, *forest)
+
+
+def unreplicate_and_get(x: PyTree) -> PyTree:
+  return jax.device_get(jax_utils.unreplicate(x))
+
+
+def log_train_summary(
+    step: int,
+    *,
+    writer: metric_writers.MetricWriter,
+    train_metrics: Sequence[Dict[str, Tuple[float, int]]],
+    extra_training_logs: Optional[Sequence[Dict[str, Any]]] = None,
+    metrics_normalizer_fn: Optional[Callable[
+        [Dict[str, Tuple[float, int]], str], Dict[str, float]]] = None,
+    prefix: str = 'train',
+    key_separator: str = '_',
+    flush_writer: bool = True,
+) -> Dict[str, float]:
+  """Computes and logs train_metrics.
+  
+  Args:
+    step: Current step.
+    writer: Summary writer.
+    train_metrics: List of dictionaries of calculated metrics. Usually the
+      sequence is the concatenation of the per-eval-step metrics, and every
+      dictionary maps a metric name to an array of (value, normalizer) - where
+      the array index is usually the batch index.
+    extra_training_logs: List of dictionaries, containing additional training
+      logs, from every train step, e.g. learning rate, time, num parameters,
+      etc. Their mean will be logged.
+    metrics_normalizer_fn: Used for normalizing metrics. The API for this
+      function is: `new_metrics_dict = metrics_normalizer_fn(metrics_dict, split)`.
+      If set to None, we use the normalize_metrics_summary which uses the 
+      normalizer paired with each metric to normalize it.
+    prefix: str; Prefix added to the name of the summaries written by this fn.
+    key_separator: str; Separator added between the prefix and key.
+    flush_writer: If True, flush the writer after logging.
+
+  Returns:
+    A dictionary of metrics, mapping `train_metrics` from metric name (incl.
+    `prefix`) to float value.
+  """
+  # Get metrics from devices.
+  train_metrics = stack_forest(train_metrics)
+  # Compute the sum over all examples in all batches.
+  train_metrics_summary = jax.tree_util.tree_map(lambda x: x.sum(),
+                                                 train_metrics)
+  # Normalize metrics by the total number of examples.
+  metrics_normalizer_fn = metrics_normalizer_fn or normalize_metrics_summary
+  train_metrics_summary = metrics_normalizer_fn(train_metrics_summary, 'train')
+
+  # Prepare additional training logs.
+  extra_training_logs = extra_training_logs or [{}]
+  train_logs = stack_forest(extra_training_logs)
+
+  # Write metrics.
+  writer.write_scalars(
+      step,
+      {
+          key_separator.join((prefix, key)): val
+          for key, val in train_metrics_summary.items()
+      },
+  )
+  writer.write_scalars(
+      step,
+      {
+          key: val.mean() for key, val in train_logs.items()
+      },
+  )
+
+  if flush_writer:
+    writer.flush()
+
+  return train_metrics_summary
+
+
+def log_eval_summary(
+    step: int,
+    *,
+    writer: metric_writers.MetricWriter,
+    eval_metrics: Sequence[Dict[str, Tuple[float, int]]],
+    extra_eval_summary: Optional[Mapping[str, float]] = None,
+    metrics_normalizer_fn: Optional[Callable[
+        [Dict[str, Tuple[str, float]], str], Dict[str, float]]] = None,
+    prefix: str = 'valid',
+    key_separator: str = '_',
+    flush_writer: bool = True,
+) -> Dict[str, float]:
+  """Computes and logs eval metrics.
+  
+  Args:
+    step: Current step.
+    writer: Metric writer object.
+    eval_metrics: List of dictionaries of collected metrics. Usually the 
+      sequence is the concatenation of the per-eval-step metrics, and every 
+      dictionary maps a metric name to an array of (value, normalizer) - where
+      the array index is usually the batch index.
+    extra_eval_summary: A dict containing summaries that are already ready to 
+      be logged, e.g. global metrics from eval set, like precision/recall.
+    metrics_normalizer_fn: Used for normalizing metrics. The API for this 
+      function is: `new_metrics_dict = metrics_normalizer_fn(metrics_dict,
+      split)`. If set to None, we use the `normalize_metrics_summary` which uses
+      the normalizer paired with each metric to normalize it (after summing both
+      metric and normalizer values).
+    prefix: str; Prefix added to the name of the summaries written by this 
+      function.
+    key_separator: Separator added between the prefix and key.
+    flush_writer: If True, flush the writer after logging.
+
+  Returns:
+    A dictionary of metrics, mapping both `eval_metrics` and `extra_eval_summary`
+    from metric name (incl. `prefix`) to float value.
+  """
+  eval_metrics = stack_forest(eval_metrics)
+
+  # Compute the sum over all examples in all batches.
+  eval_metrics_summary = jax.tree_util.tree_map(lambda x: x.sum(), eval_metrics)
+  # Normalize the metrics by the total number of examples.
+  metrics_normalizer_fn = metrics_normalizer_fn or normalize_metrics_summary
+  eval_metrics_summary = metrics_normalizer_fn(eval_metrics_summary, 'eval')
+  # If None, set to an empty dictionary.
+  extra_eval_summary = extra_eval_summary or {}
+
+  # Adds extra_eval_summary to the returned eval_summary.
+  eval_metrics_summary.update(extra_eval_summary)
+
+  writer.write_scalars(
+      step,
+      {
+          key_separator.join((prefix, key)): val
+          for key, val in eval_metrics_summary.items()
+      },
+  )
+
+  if flush_writer:
+    writer.flush()
+
+  return eval_metrics_summary
