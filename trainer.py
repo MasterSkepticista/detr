@@ -9,7 +9,7 @@ import ml_collections
 import numpy as np
 import optax
 from absl import logging
-from clu import metric_writers
+from clu import metric_writers, periodic_actions
 from flax.training.checkpoints import \
     restore_checkpoint as flax_restore_checkpoint
 
@@ -178,12 +178,13 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
   # Initialize model, loss_fn
   model = detr.DETRModel(config, dataset.meta_data)
   rng, init_rng = jax.random.split(rng)
-  (params, model_state, *_) = train_utils.initialize_model(
-      model=model.flax_model,
-      input_spec=[(dataset.meta_data['input_shape'],
-                   dataset.meta_data.get('input_dtype', jnp.float32))],
-      config=config,
-      rngs=init_rng)
+  (params, model_state, num_trainable_params,
+   gflops) = train_utils.initialize_model(
+       model=model.flax_model,
+       input_spec=[(dataset.meta_data['input_shape'],
+                    dataset.meta_data.get('input_dtype', jnp.float32))],
+       config=config,
+       rngs=init_rng)
 
   # Create optimizer.
   tx, sched_fns = bv_optax.make(config,
@@ -276,8 +277,66 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
     global_metrics_evaluator = detr_train_utils.DetrGlobalEvaluator(
         config.dataset_name, annotations_loc=config.annotations_loc)
 
-  train_metrics, extra_training_logs = [], []
+  train_metrics = []
   train_summary, eval_summary = None, None
 
   info('Starting training loop at step %d.', start_step + 1)
-  report_progress = None
+  report_progress = periodic_actions.ReportProgress(
+      num_train_steps=total_steps,
+      writer=writer,
+      every_secs=None,
+      every_steps=log_summary_steps,
+  )
+  hooks = []
+  if lead_host:
+    hooks.append(report_progress)
+  if config.get('xprof', True) and lead_host:
+    hooks.append(periodic_actions.Profile(num_profile_steps=5, logdir=workdir))
+
+  if start_step == 0:
+    step0_log = {'num_trainable_params': num_trainable_params}
+    if gflops:
+      step0_log['gflops'] = gflops
+    writer.write_scalars(1, step0_log)
+
+  (last_eval_step, last_eval_metrics), last_eval_future = (None, None), None
+  for step in range(start_step + 1, total_steps + 1):
+    with jax.profiler.StepTraceAnnotation('train', step_num=step):
+      train_batch = next(dataset.train_iter)
+      (train_state, t_metrics,
+       train_predictions) = train_step_pmapped(train_state, train_batch)
+      # Accumulate metrics (do not use for large metrics like segmentation maps).
+      train_metrics.append(train_utils.unreplicate_and_get(t_metrics))
+
+    for h in hooks:
+      h(step)
+
+    if (log_large_summary_steps and step % log_large_summary_steps == 0 and
+        lead_host):
+      ################# LOG EXPENSIVE TRAIN SUMMARY ################
+      # TODO: Visualizes detections using side-by-side gt-pred images.
+      pass
+
+    if (step % log_summary_steps == 0) or (step == total_steps - 1):
+      ########## LOG TRAIN SUMMARY #########
+      train_summary = train_utils.log_train_summary(
+          step,
+          writer=writer,
+          train_metrics=train_metrics,
+          metrics_normalizer_fn=metrics_normalizer_fn)
+      # Reset for next round.
+      train_metrics = []
+      ######################################
+
+    if (step % log_eval_steps == 0) or (step == total_steps):
+      # First wait for the previous eval to finish and write summary.
+      if last_eval_future is not None:
+        train_utils.log_eval_summary(
+            step=last_eval_step,
+            eval_metrics=last_eval_metrics,
+            extra_eval_summary=last_eval_future.result(),
+            writer=writer,
+            metrics_normalizer_fn=metrics_normalizer_fn)
+        last_eval_future = None
+
+        # TODO
