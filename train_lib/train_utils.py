@@ -59,6 +59,34 @@ class TrainState:
       return default
 
 
+@functools.partial(jax.pmap, axis_name='x')
+def pmap_mean(x: PyTree) -> PyTree:
+  # An axis_name is passed to pmap which can then be used by pmean.
+  # In this case each device has its own version of the batch statistics and we
+  # average them.
+  return jax.lax.pmean(x, 'x')
+
+
+def sync_model_state_across_replicas(train_state: TrainState) -> TrainState:
+  """Sync the model_state (like batch statistics) across replicas.
+  
+  Args:
+    train_state: TrainState; Current state of training.
+  
+  Returns:
+    Updated state of training in which model_state is synced across replicas.
+  """
+  if jax.tree_util.tree_leaves(train_state.model_state):
+    # If model_state is not empty.
+    new_model_state = flax.core.copy(
+        train_state.model_state,
+        {'batch_stats': pmap_mean(train_state.model_state['batch_stats'])},
+    )
+    return train_state.replace(model_state=new_model_state)
+  else:
+    return train_state
+
+
 class TrainingDivergedError(Exception):
   pass
 
@@ -226,6 +254,34 @@ def get_dataset(
                                           num_shards=num_local_shards,
                                           dataset_configs=dataset_configs)
   return dataset
+
+
+def save_checkpoint(workdir: str,
+                    train_state: TrainState,
+                    max_to_keep: int = 3,
+                    overwrite: bool = False,
+                    **kwargs):
+  """Saves a checkpoint.
+  
+  Args:
+    workdir: Experiment directory for saving the checkpoint.
+    train_state: An instance of TrainState that holds the state of training.
+    max_to_keep: The number of checkpoints to keep.
+    overwrite: Overwrite existing checkpoint if a checkpoint at the current or
+      a later step already exists (default: False).
+    **kwargs: Passed on to `flax.training.checkpoints.save_checkpoint`.
+  """
+  if jax.process_index() == 0:
+    # Get train state from the first replica.
+    checkpoint_state = jax.device_get(train_state)
+    checkpoints.save_checkpoint(
+        workdir,
+        checkpoint_state,
+        int(checkpoint_state.global_step),
+        overwrite=overwrite,
+        max_to_keep=max_to_keep,
+        **kwargs,
+    )
 
 
 def restore_checkpoint(checkpoint_path: str,

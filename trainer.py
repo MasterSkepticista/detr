@@ -1,4 +1,5 @@
 import functools
+import time
 from concurrent import futures
 from typing import Callable
 
@@ -10,6 +11,7 @@ import numpy as np
 import optax
 from absl import logging
 from clu import metric_writers, periodic_actions
+from flax import jax_utils
 from flax.training.checkpoints import \
     restore_checkpoint as flax_restore_checkpoint
 
@@ -274,6 +276,7 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
   global_metrics_evaluator = None  # Only run eval on the lead host.
   if lead_host:
+    # TODO
     global_metrics_evaluator = detr_train_utils.DetrGlobalEvaluator(
         config.dataset_name, annotations_loc=config.annotations_loc)
 
@@ -339,4 +342,34 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
             metrics_normalizer_fn=metrics_normalizer_fn)
         last_eval_future = None
 
-        # TODO
+      # Sync model state across replicas (in case of having model state, e.g.
+      # batch statistics when using BatchNorm).
+      start_time = time.time()
+      with report_progress.timed('eval'):
+        train_state = train_utils.sync_model_state_across_replicas(train_state)
+        (last_eval_step,
+         last_eval_metrics), last_eval_future = evaluate(train_state, step)
+      duration = time.time() - start_time
+      info('Done with async evaluation %.4f sec.', duration)
+      writer.flush()
+
+    ####################### CHECKPOINTING ####################
+    if ((step % checkpoint_steps == 0 and step > 0) or
+        (step == total_steps)) and config.checkpoint:
+      with report_progress.timed('checkpoint'):
+        # Sync model state across replicas.
+        train_state = train_utils.sync_model_state_across_replicas(train_state)
+        if lead_host:
+          train_utils.save_checkpoint(workdir,
+                                      jax_utils.unreplicate(train_state))
+
+  # Wait until computations are done before exiting.
+  pool.shutdown()
+  if last_eval_future is not None:
+    train_utils.log_eval_summary(step=last_eval_step,
+                                 eval_metrics=last_eval_metrics,
+                                 extra_eval_summary=last_eval_future.result(),
+                                 writer=writer,
+                                 metrics_normalizer_fn=metrics_normalizer_fn)
+  jax.random.normal(jax.random.key(0), ()).block_until_ready()
+  return train_state, train_summary, eval_summary
