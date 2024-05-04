@@ -193,7 +193,7 @@ def weighted_unnormalized_softmax_cross_entropy(
   loss = -one_hot_targets * logits
 
   if weights is not None:
-    loss = apply_weights(loss)
+    loss = apply_weights(loss, weights)
 
   if not keep_label_dimension:
     loss = loss.sum(axis=-1)

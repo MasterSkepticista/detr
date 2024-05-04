@@ -412,8 +412,8 @@ class BaseModelWithMatching(base_model.BaseModel):
 
     # Same for boxes.
     instance = jnp.zeros_like(batch['label']['boxes'][..., :1, :])
-    batch['label']['labels'] = jnp.concatenate(
-        [batch['label']['labels'], instance], axis=-2)
+    batch['label']['boxes'] = jnp.concatenate(
+        [batch['label']['boxes'], instance], axis=-2)
 
     if matches is None:
       if 'cost' not in outputs:
@@ -459,6 +459,7 @@ class BaseModelWithMatching(base_model.BaseModel):
             ],
             axis=1)  # [b, 2, n-m]
         return jnp.concatenate([match, padding], axis=-1)  # [b, 2, n]
+      return match
 
     matches = [pad_matches(match) for match in matches]
 
