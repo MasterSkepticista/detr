@@ -1,7 +1,7 @@
 import functools
 import time
 from concurrent import futures
-from typing import Callable
+from typing import Any, Callable, Optional
 
 import flax
 import jax
@@ -248,7 +248,7 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
   eval_step = get_eval_step(flax_model=model.flax_model,
                             loss_and_metrics_fn=model.loss_function,
                             logits_to_probs_fn=model.logits_to_probs,
-                            debug=config.debug_eval)
+                            debug=config.get('debug_eval', False))
   eval_step_pmapped = jax.pmap(eval_step,
                                axis_name='batch',
                                donate_argnums=(1,))
@@ -265,7 +265,70 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
   def evaluate(train_state, step):
     """Runs evaluation code."""
-    pass
+    future = None
+
+    def _wait(future: Optional[futures.Future]) -> Any:
+      if future is None:
+        return future
+      return future.result()
+
+    def _add_examples(predictions, labels):
+      for pred, label in zip(predictions, labels):
+        global_metrics_evaluator.add_example(prediction=pred, target=label)
+
+    eval_metrics = []
+    if global_metrics_evaluator is not None:
+      global_metrics_evaluator.clear()
+
+    for eval_step in range(steps_per_eval):
+      logging.info('Running eval step %d', eval_step)
+      eval_batch = next(dataset.valid_iter)
+
+      # Do the eval step.
+      (eval_batch_all_hosts, eval_predictions_all_hosts,
+       e_metrics) = eval_step_pmapped(train_state, eval_batch)
+
+      # aux_outputs is not needed anymore.
+      eval_predictions_all_hosts.pop('aux_outputs', None)
+
+      # Collect local metrics (returned by the loss function).
+      eval_metrics.append(train_utils.unreplicate_and_get(e_metrics))
+
+      if global_metrics_evaluator is not None:
+        # Unreplicate the output of eval_step_pmapped (used `lax.all_gather`).
+        eval_batch_all_hosts = jax_utils.unreplicate(eval_batch_all_hosts)
+        eval_predictions_all_hosts = jax_utils.unreplicate(
+            eval_predictions_all_hosts)
+
+        # Collect preds and labels to be sent for computing global metrics.
+        predictions = detr_train_utils.process_and_fetch_to_host(
+            eval_predictions_all_hosts, eval_batch_all_hosts['batch_mask'])
+        predictions = jax.tree_util.tree_map(np.asarray, predictions)
+
+        labels = detr_train_utils.process_and_fetch_to_host(
+            eval_batch_all_hosts['label'], eval_batch_all_hosts['batch_mask'])
+        labels = jax.tree_util.tree_map(np.asarray, labels)
+
+        if eval_step == 0:
+          logging.info('Pred keys: %s', list(predictions[0].keys()))
+          logging.info('Labels keys: %s', list(labels[0].keys()))
+
+        # Add to evaluator.
+        _wait(future)
+        future = pool.submit(_add_examples, predictions, labels)
+
+        del predictions, labels
+
+      del eval_batch, eval_batch_all_hosts, eval_predictions_all_hosts
+
+    eval_global_metrics_summary_future = None
+    if global_metrics_evaluator is not None:
+      _wait(future)
+      logging.info('Number of eval examples: %d', len(global_metrics_evaluator))
+      eval_global_metrics_summary_future = pool.submit(
+          global_metrics_evaluator.compute_metrics, clear_annotations=False)
+
+    return (step, eval_metrics), eval_global_metrics_summary_future
 
   #####################################################
 
@@ -278,7 +341,7 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
   if lead_host:
     # TODO
     global_metrics_evaluator = detr_train_utils.DetrGlobalEvaluator(
-        config.dataset_name, annotations_loc=config.annotations_loc)
+        config.dataset_configs.name, annotations_loc=config.annotations_loc)
 
   train_metrics = []
   train_summary, eval_summary = None, None

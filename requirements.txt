@@ -1,6 +1,7 @@
 tensorflow_cpu==2.13
 tensorflow_datasets
 ml_collections
+pycocotools
 flax
 optax
 clu
