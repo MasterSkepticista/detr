@@ -15,6 +15,7 @@ def get_config():
 
   # Model config
   config.model_dtype_str = 'float32'
+  config.matcher = 'hungarian_cover_tpu'
   config.hidden_dim = 256
   config.num_queries = 100
   config.query_emb_size = None  # Same as hidden size.
@@ -56,6 +57,9 @@ def get_config():
   config.freeze_backbone_batch_stats = True
   config.pretrained_backbone_configs = ml_collections.ConfigDict()
   config.pretrained_backbone_configs.checkpoint_path = '/mnt/nfs_share/orion-jax/artifacts/bit50'
+
+  # Annotations
+  config.annotations_loc = '/mnt/nfs_share/scenic/scenic/dataset_lib/coco_dataset/data/instances_val2017.json'
 
   # Logging/checkpointing
   config.checkpoint = True
