@@ -589,7 +589,90 @@ class ObjectDetectionWithMatchingModel(BaseModelWithMatching):
   def boxes_losses_and_metrics(
       self, outputs: ArrayDict, batch: ArrayDict,
       indices: jnp.ndarray) -> Tuple[ArrayDict, MetricsDict]:
-    """Bounding box losses: L1 regression loss and GIoU loss."""
-    # TODO
-    losses, metrics = None
+    """Bounding box losses: L1 regression loss and GIoU loss.
+    
+    Args:
+      outputs: dict; Model predictions. For the purpose of this loss, outputs
+        must have a key `pred_boxes`. outputs['pred_boxes'] an ndarray of 
+        predicted box coordinates in (cx, cy, w, h) format. This ndarray has
+        shape [bs, num_boxes, 4].
+      batch: dict; that has `inputs`, `batch_mask` and `label` (ground truth).
+        batch['label'] is a dict. For the purpose of this loss, batch['label']
+        must have key 'boxes', which has a value in the same format as 
+        output['pred_boxes']. Additionally in batch['label'], key 'labels' is
+        required that should match the specs defined in the member function
+        `labels_losses_and_metrics`. This is to decide which boxes are invalid 
+        and need to be ignored. Invalid boxes have class label 0. If 
+        batch['batch_mask'] is provided, it is used to weigh the loss for 
+        different images in the current batch of examples.
+      indices: list[tuple[ndarray, ndarray]]; Matcher output which conveys 
+        source to target pairing of objects.
+
+    Returns:
+      loss: dict with keys `loss_bbox`. These are losses averaged over the batch.
+        Therefore they have shape [].
+      metrics: dict with keys `loss_bbox` and `loss_giou`. These are metrics
+        psumed over the batch. Therefore they have shape [].
+    """
+    assert 'pred_boxes' in outputs
+    assert 'label' in batch
+
+    targets = batch['label']
+    assert 'boxes' in targets
+    assert 'labels' in targets
+    losses, metrics = {}, {}
+    batch_weights = batch.get('batch_mask')
+
+    src_boxes = model_utils.simple_gather(outputs['pred_boxes'], indices[:, 0])
+    tgt_boxes = model_utils.simple_gather(targets['boxes'], indices[:, 1])
+
+    # Some of the boxes are padding. We want to discount them from the loss.
+    target_is_onehot = self.dataset_meta_data.get('target_is_onehot', False)
+    if target_is_onehot:
+      tgt_not_padding = 1 - targets['labels'][..., 0]
+    else:
+      tgt_not_padding = targets['labels'] != 0
+
+    # tgt_not_padding has shape [bs, num_boxes].
+    # Align this with the model predictions using simple gather.
+    tgt_not_padding = model_utils.simple_gather(tgt_not_padding, indices[:, 1])
+
+    src_boxes_xyxy = box_utils.box_cxcywh_to_xyxy(src_boxes)
+    tgt_boxes_xyxy = box_utils.box_cxcywh_to_xyxy(tgt_boxes)
+    unnormalized_loss_giou = 1 - box_utils.generalized_box_iou(
+        src_boxes_xyxy, tgt_boxes_xyxy, all_pairs=False)
+
+    # This implementation assumes tight bboxes only.
+    unnormalized_loss_bbox = model_utils.weighted_box_l1_loss(
+        src_boxes_xyxy, tgt_boxes_xyxy, weights=batch_weights).sum(axis=2)
+
+    denom = tgt_not_padding.sum(axis=1)
+    if batch_weights is not None:
+      denom *= batch_weights
+      unnormalized_loss_giou = model_utils.apply_weights(
+          unnormalized_loss_giou, batch_weights)
+
+    unnormalized_loss_bbox *= tgt_not_padding
+    unnormalized_loss_giou *= tgt_not_padding
+
+    norm_type = self.config.get('normalization')
+    if norm_type != 'per_example':
+      # Normalize by the number of boxes in batch.
+      denom = jnp.maximum(jax.lax.pmean(denom.sum(), axis_name='batch'), 1)
+      normalized_loss_giou = unnormalized_loss_giou.sum() / denom
+      normalized_loss_bbox = unnormalized_loss_bbox.sum() / denom
+    else:
+      # Normalize by number of boxes in image.
+      denom = jnp.maximum(denom, 1.)
+      normalized_loss_bbox = (unnormalized_loss_bbox.sum(axis=1) / denom).mean()
+      normalized_loss_giou = (unnormalized_loss_giou.sum(axis=1) / denom).mean()
+
+    losses['loss_bbox'] = normalized_loss_bbox
+    metrics['loss_bbox'] = (normalized_loss_bbox, 1.)
+    losses['loss_giou'] = normalized_loss_giou
+    metrics['loss_giou'] = (normalized_loss_giou, 1.)
+
+    # Sum metrics and normalizers over all replicas.
+    for k, v in metrics.items():
+      metrics[k] = model_utils.psum_metric_normalizer(v)
     return losses, metrics

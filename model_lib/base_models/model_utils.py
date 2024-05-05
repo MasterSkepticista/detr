@@ -220,3 +220,49 @@ def simple_gather(x: jnp.ndarray, idx: jnp.ndarray) -> jnp.ndarray:
     Gathered output of shape [bs, m, d].
   """
   return x[idx]
+
+
+def weighted_box_l1_loss(pred: jnp.ndarray,
+                         tgt: jnp.ndarray,
+                         weights: Optional[jnp.ndarray] = None,
+                         reduction: Optional[str] = None,
+                         tight: bool = True) -> jnp.ndarray:
+  """L1 loss for bounding box with optional reduction specified.
+  
+  Args:
+    pred: Prediction boxes of shape (..., 4), where the last dimension has form
+      (x_min, y_min, x_max, y_max).
+    tgt: Target boxes with same shape and form as `pred`.
+    weights: Weights to apply to the loss.
+    reduction: Type of reduction. Choose from [None, 'mean'].
+    tight: If True, returns the vanilla L1 loss on the bounding box coordinates.
+      If False, returns loose bounding box L1 loss, where prediction edges only
+      generate loss when they stretch outside the target box, but not when they
+      are within it.
+  
+  Returns:
+    reduction(jnp.abs(src - tgt)). 'mean' reduction takes the global mean.
+    To use customized normalization, use `None` reduction and scale loss
+    in the caller.
+  """
+  assert pred.shape[-1] == 4, (
+      f'The last dimension of the prediction boxes must be 4. '
+      f'Got shape {pred.shape}.')
+  assert tgt.shape[-1] == 4, (
+      f'The last dimension of the target boxes must be 4. '
+      f'Got shape {tgt.shape}.')
+  if tight:
+    abs_diff = jnp.abs(pred - tgt)
+  else:
+    xy1, xy2 = jnp.split(pred - tgt, 2, axis=-1)
+    xy1 = jnp.minimum(xy1, 0.)
+    xy2 = jnp.maximum(xy2, 0.)
+    abs_diff = jnp.abs(jnp.concatenate([xy1, xy2], axis=-1))
+  if weights is not None:
+    abs_diff = apply_weights(abs_diff, weights)
+  if not reduction:
+    return abs_diff
+  elif reduction == 'mean':
+    return abs_diff.mean()
+  else:
+    raise ValueError(f'Unknown reduction `{reduction}`')
