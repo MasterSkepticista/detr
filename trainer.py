@@ -90,8 +90,7 @@ def get_train_step(apply_fn: Callable, loss_and_metrics_fn: Callable,
 def get_eval_step(flax_model,
                   loss_and_metrics_fn,
                   logits_to_probs_fn,
-                  metrics_only=False,
-                  debug=False):
+                  metrics_only=False):
   """Runs a single step of evaluation.
   
   Note that in this code, the buffer of the second argument (batch) is donated
@@ -103,9 +102,6 @@ def get_eval_step(flax_model,
       parameters of the model calculates the loss as well as metrics.
     logits_to_probs_fn: Function that takes logits and converts them to probs.
     metrics_only: bool; Only return metrics.
-    debug: bool; Whether the debug mode is enabled during evaluation.
-      `debug=True` enables model specific logging/storing some values using
-      jax.host_callback.
   
   Returns:
     Eval step function which returns predictions and calculated metrics.
@@ -149,8 +145,7 @@ def get_eval_step(flax_model,
                                    batch['inputs'],
                                    padding_mask=batch['padding_mask'],
                                    train=False,
-                                   mutable=False,
-                                   debug=debug)
+                                   mutable=False)
     return metrics_fn(train_state, batch, predictions)
 
   return eval_step
@@ -247,8 +242,7 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
   # Evaluation code.
   eval_step = get_eval_step(flax_model=model.flax_model,
                             loss_and_metrics_fn=model.loss_function,
-                            logits_to_probs_fn=model.logits_to_probs,
-                            debug=config.get('debug_eval', False))
+                            logits_to_probs_fn=model.logits_to_probs)
   eval_step_pmapped = jax.pmap(eval_step,
                                axis_name='batch',
                                donate_argnums=(1,))
