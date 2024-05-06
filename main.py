@@ -1,5 +1,6 @@
 """Entrypoint for training DETR in JAX."""
 import jax
+import flax
 from absl import app, flags, logging
 from clu import metric_writers
 from ml_collections import config_flags
@@ -15,6 +16,8 @@ config_flags.DEFINE_config_file('config',
                                 lock_config=True)
 
 flags.DEFINE_string('workdir', None, 'Path to store checkpoints and logs.')
+
+flax.config.update('flax_use_orbax_checkpointing', False)
 
 FLAGS = flags.FLAGS
 

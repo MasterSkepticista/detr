@@ -233,7 +233,7 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
   train_step = get_train_step(
       apply_fn=model.flax_model.apply,
-      loss_and_metrics_fn=model.loss_function,  # TODO
+      loss_and_metrics_fn=model.loss_function,
       update_batch_stats=update_batch_stats,
       tx=tx)
   train_step_pmapped = jax.pmap(train_step,
@@ -334,7 +334,6 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
   global_metrics_evaluator = None  # Only run eval on the lead host.
   if lead_host:
-    # TODO
     global_metrics_evaluator = detr_train_utils.DetrGlobalEvaluator(
         config.dataset_configs.name, annotations_loc=config.annotations_loc)
 
