@@ -379,10 +379,15 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
     if (step % log_summary_steps == 0) or (step == total_steps - 1):
       ########## LOG TRAIN SUMMARY #########
+      sched_logs = [{
+        f'global_schedule_{i}': sched_fn(step-1) 
+        for i, sched_fn in enumerate(sched_fns_cpu)
+      }]
       train_summary = train_utils.log_train_summary(
           step,
           writer=writer,
           train_metrics=train_metrics,
+          extra_training_logs=sched_logs,
           metrics_normalizer_fn=metrics_normalizer_fn)
       # Reset for next round.
       train_metrics = []
