@@ -65,9 +65,10 @@ class DetrGlobalEvaluator:
       scores = scipy.special.softmax(prediction['pred_logits'], axis=-1)[:, 1:]
 
     # Add example to evaluator.
-    self.coco_evaluator.add_annotation(bboxes=boxes_np,
-                                       scores=np.asarray(scores),
-                                       img_id=int(target['image/id']))
+    self.coco_evaluator.add_annotation(
+        bboxes=boxes_np,
+        scores=np.asarray(scores),
+        img_id=int(target['image/id']))
     self._num_examples_added += 1
 
   def compute_metrics(self,
@@ -112,8 +113,9 @@ class DetrGlobalEvaluator:
 
     with tf.io.gfile.GFile(json_file_path, 'w') as f:
       f.write(
-          json.dumps(self.coco_evaluator.annotations,
-                     default=_convert_to_serializable))
+          json.dumps(
+              self.coco_evaluator.annotations,
+              default=_convert_to_serializable))
     logging.info('Predicted annotations are stored in %s.', json_file_path)
     if clear_annotations:
       self.coco_evaluator.clear_annotations()

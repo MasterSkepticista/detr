@@ -49,9 +49,8 @@ def get_train_step(apply_fn: Callable, loss_and_metrics_fn: Callable,
     def loss_fn(params):
       new_rng, rng = jax.random.split(train_state.rng)
       # Bind the rng to the host/device we are on.
-      model_rng = train_utils.bind_rng_to_host_device(rng,
-                                                      axis_name='batch',
-                                                      bind_to='device')
+      model_rng = train_utils.bind_rng_to_host_device(
+          rng, axis_name='batch', bind_to='device')
       variables = {'params': params, **train_state.model_state}
       predictions, new_model_state = apply_fn(
           variables,
@@ -61,28 +60,28 @@ def get_train_step(apply_fn: Callable, loss_and_metrics_fn: Callable,
           mutable=train_state.model_state.keys(),
           train=True,
           rngs={'dropout': model_rng})
-      loss, metrics = loss_and_metrics_fn(predictions,
-                                          batch,
-                                          model_params=params)
+      loss, metrics = loss_and_metrics_fn(
+          predictions, batch, model_params=params)
       return loss, (new_model_state, metrics, predictions, new_rng)
 
     new_global_step = train_state.global_step + 1
     (_, (new_model_state, metrics, predictions,
-         new_rng)), grads = jax.value_and_grad(loss_fn,
-                                               has_aux=True)(train_state.params)
+         new_rng)), grads = jax.value_and_grad(
+             loss_fn, has_aux=True)(
+                 train_state.params)
 
     grads = jax.tree_map(lambda g: jnp.asarray(g, jnp.bfloat16), grads)
     grads = jax.lax.pmean(grads, axis_name='batch')
 
-    updates, new_opt_state = tx.update(grads,
-                                       train_state.opt_state,
-                                       params=train_state.params)
+    updates, new_opt_state = tx.update(
+        grads, train_state.opt_state, params=train_state.params)
     new_params = optax.apply_updates(train_state.params, updates)
-    train_state = train_state.replace(global_step=new_global_step,
-                                      params=new_params,
-                                      opt_state=new_opt_state,
-                                      model_state=new_model_state,
-                                      rng=new_rng)
+    train_state = train_state.replace(
+        global_step=new_global_step,
+        params=new_params,
+        opt_state=new_opt_state,
+        model_state=new_model_state,
+        rng=new_rng)
     return train_state, metrics, predictions
 
   return train_step
@@ -109,9 +108,8 @@ def get_eval_step(flax_model,
   """
 
   def metrics_fn(train_state, batch, predictions):
-    _, metrics = loss_and_metrics_fn(predictions,
-                                     batch,
-                                     model_params=train_state.params)
+    _, metrics = loss_and_metrics_fn(
+        predictions, batch, model_params=train_state.params)
     if metrics_only:
       return None, None, metrics
 
@@ -142,11 +140,12 @@ def get_eval_step(flax_model,
 
   def eval_step(train_state, batch):
     variables = {'params': train_state.params, **train_state.model_state}
-    predictions = flax_model.apply(variables,
-                                   batch['inputs'],
-                                   padding_mask=batch['padding_mask'],
-                                   train=False,
-                                   mutable=False)
+    predictions = flax_model.apply(
+        variables,
+        batch['inputs'],
+        padding_mask=batch['padding_mask'],
+        train=False,
+        mutable=False)
     return metrics_fn(train_state, batch, predictions)
 
   return eval_step
@@ -166,10 +165,8 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
   # Calculate total train steps using available information.
   ntrain_img = dataset.meta_data['num_train_examples']
-  total_steps = u.steps('total',
-                        config,
-                        data_size=ntrain_img,
-                        batch_size=config.batch_size)
+  total_steps = u.steps(
+      'total', config, data_size=ntrain_img, batch_size=config.batch_size)
   info('Running for %d steps (%f epochs)', total_steps,
        total_steps / (ntrain_img / config.batch_size))
 
@@ -185,21 +182,24 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
        rngs=init_rng)
 
   # Create optimizer.
-  tx, sched_fns = bv_optax.make(config,
-                                params,
-                                sched_kw=dict(total_steps=total_steps,
-                                              batch_size=config.batch_size,
-                                              data_size=ntrain_img))
+  tx, sched_fns = bv_optax.make(
+      config,
+      params,
+      sched_kw=dict(
+          total_steps=total_steps,
+          batch_size=config.batch_size,
+          data_size=ntrain_img))
   opt_state = jax.jit(tx.init, backend='cpu')(params)
   sched_fns_cpu = [jax.jit(sched_fn, backend='cpu') for sched_fn in sched_fns]
 
   # Build TrainState
   rng, train_rng = jax.random.split(rng)
-  train_state = train_utils.TrainState(global_step=0,
-                                       params=params,
-                                       opt_state=opt_state,
-                                       model_state=model_state,
-                                       rng=train_rng)
+  train_state = train_utils.TrainState(
+      global_step=0,
+      params=params,
+      opt_state=opt_state,
+      model_state=model_state,
+      rng=train_rng)
 
   # Load checkpoint/pretrained weights
   start_step = train_state.global_step
@@ -236,17 +236,16 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
       loss_and_metrics_fn=model.loss_function,
       update_batch_stats=update_batch_stats,
       tx=tx)
-  train_step_pmapped = jax.pmap(train_step,
-                                axis_name='batch',
-                                donate_argnums=(0,))
+  train_step_pmapped = jax.pmap(
+      train_step, axis_name='batch', donate_argnums=(0,))
 
   # Evaluation code.
-  eval_step = get_eval_step(flax_model=model.flax_model,
-                            loss_and_metrics_fn=model.loss_function,
-                            logits_to_probs_fn=model.logits_to_probs)
-  eval_step_pmapped = jax.pmap(eval_step,
-                               axis_name='batch',
-                               donate_argnums=(1,))
+  eval_step = get_eval_step(
+      flax_model=model.flax_model,
+      loss_and_metrics_fn=model.loss_function,
+      logits_to_probs_fn=model.logits_to_probs)
+  eval_step_pmapped = jax.pmap(
+      eval_step, axis_name='batch', donate_argnums=(1,))
 
   # Ceil rounding such that we include the last incomplete batch.
   eval_batch_size = config.get('eval_batch_size', config.batch_size)
@@ -380,8 +379,8 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
     if (step % log_summary_steps == 0) or (step == total_steps - 1):
       ########## LOG TRAIN SUMMARY #########
       sched_logs = [{
-        f"global_schedule{i if i else ''}": sched_fn(step-1) 
-        for i, sched_fn in enumerate(sched_fns_cpu)
+          f"global_schedule{i if i else ''}": sched_fn(step - 1)
+          for i, sched_fn in enumerate(sched_fns_cpu)
       }]
       train_summary = train_utils.log_train_summary(
           step,
@@ -428,10 +427,11 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
   # Wait until computations are done before exiting.
   pool.shutdown()
   if last_eval_future is not None:
-    train_utils.log_eval_summary(step=last_eval_step,
-                                 eval_metrics=last_eval_metrics,
-                                 extra_eval_summary=last_eval_future.result(),
-                                 writer=writer,
-                                 metrics_normalizer_fn=metrics_normalizer_fn)
+    train_utils.log_eval_summary(
+        step=last_eval_step,
+        eval_metrics=last_eval_metrics,
+        extra_eval_summary=last_eval_future.result(),
+        writer=writer,
+        metrics_normalizer_fn=metrics_normalizer_fn)
   jax.random.normal(jax.random.key(0), ()).block_until_ready()
   return train_state, train_summary, eval_summary

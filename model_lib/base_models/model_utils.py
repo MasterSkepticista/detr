@@ -36,10 +36,10 @@ def apply_weights(output: jnp.ndarray, weights: jnp.ndarray) -> jnp.ndarray:
   if output.ndim < weights.ndim:
     raise ValueError('Output rank should be >= weights rank')
   desired_weights_shape = weights.shape + (1,) * (output.ndim - weights.ndim)
-  weights = jax.lax.broadcast_in_dim(weights,
-                                     shape=desired_weights_shape,
-                                     broadcast_dimensions=tuple(
-                                         range(weights.ndim)))
+  weights = jax.lax.broadcast_in_dim(
+      weights,
+      shape=desired_weights_shape,
+      broadcast_dimensions=tuple(range(weights.ndim)))
   return output * weights
 
 

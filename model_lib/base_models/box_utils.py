@@ -111,11 +111,8 @@ def generalized_box_iou(boxes1: Array,
   """
   # This code assumes degenerate boxes are pre-checked. We cannot do asserts
   # on inputs with jitting.
-  iou, union = box_iou(boxes1,
-                       boxes2,
-                       np_backend=np_backend,
-                       all_pairs=all_pairs,
-                       eps=eps)
+  iou, union = box_iou(
+      boxes1, boxes2, np_backend=np_backend, all_pairs=all_pairs, eps=eps)
   # Generalized IoU has an extra term which takes into account the area of the
   # box containing both of these boxes. The following code is very similar to
   # that for computing intersection, but the min/max are flipped.

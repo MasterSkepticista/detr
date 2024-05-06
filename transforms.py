@@ -282,9 +282,8 @@ def crop(features, region):
 
     # Recompute box area
     if 'area' in target:
-      target['area'] = tf.reduce_prod(cropped_boxes[:, 1, :] -
-                                      cropped_boxes[:, 0, :],
-                                      axis=1)
+      target['area'] = tf.reduce_prod(
+          cropped_boxes[:, 1, :] - cropped_boxes[:, 0, :], axis=1)
 
     # Remove degenerate boxes
     cropped_boxes = tf.reshape(target['boxes'], [-1, 2, 2])

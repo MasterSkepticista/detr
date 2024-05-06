@@ -58,9 +58,10 @@ def make(config: ml_collections.ConfigDict, params: PyTree, *, sched_kw: dict):
   ]
 
   # Gradient clipping
-  grad_clip_norm_tx = (optax.masked(
-      optax.clip_by_global_norm(config.grad_clip_norm), not_frozen_mask)
-                       if 'grad_clip_norm' in config else optax.identity())
+  grad_clip_norm_tx = (
+      optax.masked(
+          optax.clip_by_global_norm(config.grad_clip_norm), not_frozen_mask)
+      if 'grad_clip_norm' in config else optax.identity())
 
   # Optimizer updates
   tx_func = operator.attrgetter(config.optax_name)(optax)
@@ -70,9 +71,8 @@ def make(config: ml_collections.ConfigDict, params: PyTree, *, sched_kw: dict):
   lr_mult_txs = [optax.scale(config.lr)]
   if config.get('lr_mults'):
     # Custom lr for different param sets
-    masks, mults = _make_mask_trees(params,
-                                    config.lr_mults,
-                                    log_msg='config.lr_mults')
+    masks, mults = _make_mask_trees(
+        params, config.lr_mults, log_msg='config.lr_mults')
     assert all(mult > 0 for mult in mults), (
         f'Use `schedule=None` to freeze params, not `lr_mults={mults}`')
     lr_mult_txs += [

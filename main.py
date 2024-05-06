@@ -10,10 +10,8 @@ from train_lib import train_utils
 
 logging.set_verbosity('info')
 
-config_flags.DEFINE_config_file('config',
-                                None,
-                                'Training configuration.',
-                                lock_config=True)
+config_flags.DEFINE_config_file(
+    'config', None, 'Training configuration.', lock_config=True)
 
 flags.DEFINE_string('workdir', None, 'Path to store checkpoints and logs.')
 
@@ -34,11 +32,8 @@ def main(unused_argv):
       logdir=workdir, just_logging=jax.process_index() > 0)
 
   dataset = train_utils.get_dataset(cfg, rng=data_rng)
-  trainer.train_and_evaluate(rng=rng,
-                             dataset=dataset,
-                             config=cfg,
-                             workdir=workdir,
-                             writer=writer)
+  trainer.train_and_evaluate(
+      rng=rng, dataset=dataset, config=cfg, workdir=workdir, writer=writer)
 
 
 if __name__ == "__main__":

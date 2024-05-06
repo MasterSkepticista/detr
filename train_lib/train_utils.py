@@ -32,8 +32,8 @@ class TrainState:
   and pmap.
   """
 
-  tx: Optional[optax.GradientTransformation] = struct.field(default=None,
-                                                            pytree_node=False)
+  tx: Optional[optax.GradientTransformation] = struct.field(
+      default=None, pytree_node=False)
   opt_state: Optional[optax.OptState] = None
   params: Optional[Any] = struct.field(default_factory=dict)
   global_step: Optional[int] = 0
@@ -248,11 +248,12 @@ def get_dataset(
 
   dataset_configs = dataset_configs or config.get('dataset_configs', {})
   num_local_shards = jax.local_device_count()
-  dataset = input_pipeline.build_pipeline(rng=rng,
-                                          batch_size=local_batch_size,
-                                          eval_batch_size=eval_local_batch_size,
-                                          num_shards=num_local_shards,
-                                          dataset_configs=dataset_configs)
+  dataset = input_pipeline.build_pipeline(
+      rng=rng,
+      batch_size=local_batch_size,
+      eval_batch_size=eval_local_batch_size,
+      num_shards=num_local_shards,
+      dataset_configs=dataset_configs)
   return dataset
 
 

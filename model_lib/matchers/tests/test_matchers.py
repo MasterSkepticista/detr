@@ -11,9 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Unit tests for functions in matchers."""
-
 
 from typing import Optional
 
@@ -26,7 +24,6 @@ from scenic.model_lib import matchers
 from scenic.model_lib.base_models import box_utils
 import scipy.optimize as sciopt
 
-
 MATCHER_FUNCTIONS = {
     'hungarian': matchers.hungarian_matcher,
     'hungarian_tpu': matchers.hungarian_tpu_matcher,
@@ -36,10 +33,12 @@ MATCHER_FUNCTIONS = {
     'lazy': matchers.lazy_matcher,
     'hungarian_cover_tpu': matchers.hungarian_cover_tpu_matcher
 }
-EXACT_MATCHERS = ['hungarian', 'hungarian_tpu', 'hungarian_scan_tpu',
-                  'hungarian_cover_tpu']
-RECT_MATCHERS = ['hungarian', 'hungarian_tpu', 'hungarian_scan_tpu',
-                 'hungarian_cover_tpu']
+EXACT_MATCHERS = [
+    'hungarian', 'hungarian_tpu', 'hungarian_scan_tpu', 'hungarian_cover_tpu'
+]
+RECT_MATCHERS = [
+    'hungarian', 'hungarian_tpu', 'hungarian_scan_tpu', 'hungarian_cover_tpu'
+]
 CPU_MATCHERS = ['hungarian']
 
 EPS = 1e-4
@@ -246,12 +245,13 @@ class MatchingTest(parameterized.TestCase):
     tgt_labels = []
     for i in range(self.batchsize):
       key = jax.random.PRNGKey(i)
-      tgt_labels.append(jax.random.choice(
-          key,
-          jnp.arange(1, self.num_classes),
-          shape=(self.max_num_boxes,),
-          replace=False,
-          p=None))
+      tgt_labels.append(
+          jax.random.choice(
+              key,
+              jnp.arange(1, self.num_classes),
+              shape=(self.max_num_boxes,),
+              replace=False,
+              p=None))
     tgt_labels = jnp.stack(tgt_labels)
     # Ensure last target is dummy empty target.
     tgt_labels = tgt_labels.at[:, -1].set(0)
@@ -284,8 +284,10 @@ class MatchingTest(parameterized.TestCase):
       *[(name, MATCHER_FUNCTIONS[name]) for name in EXACT_MATCHERS])
   def test_cost_matches_scipy(self, matcher_fn):
     """Can recover the matching returned by Scipy?"""
-    sp_ind = np.array(list(map(lambda x: tuple(sciopt.linear_sum_assignment(x)),
-                               self.cost_matrix)))
+    sp_ind = np.array(
+        list(
+            map(lambda x: tuple(sciopt.linear_sum_assignment(x)),
+                self.cost_matrix)))
     ind = matcher_fn(self.cost_matrix)
 
     for i, ((sp_row, sp_col), (row, col)) in enumerate(zip(sp_ind, ind)):
@@ -299,8 +301,9 @@ class MatchingTest(parameterized.TestCase):
     """Can recover the matching returned by Scipy for m > n matrices?"""
     # Test where n > m.
     cost_matrix = self.cost_matrix[:, :, self.cost_matrix.shape[2] // 2:]
-    sp_ind = np.array(list(map(lambda x: tuple(sciopt.linear_sum_assignment(x)),
-                               cost_matrix)))
+    sp_ind = np.array(
+        list(
+            map(lambda x: tuple(sciopt.linear_sum_assignment(x)), cost_matrix)))
     ind = matcher_fn(cost_matrix)
 
     for i, ((sp_row, sp_col), (row, col)) in enumerate(zip(sp_ind, ind)):
@@ -314,8 +317,9 @@ class MatchingTest(parameterized.TestCase):
     """Can recover the matching returned by Scipy for n < m matrices?"""
     # Test where n < m.
     cost_matrix = self.cost_matrix[:, self.cost_matrix.shape[1] // 2:, :]
-    sp_ind = np.array(list(map(lambda x: tuple(sciopt.linear_sum_assignment(x)),
-                               cost_matrix)))
+    sp_ind = np.array(
+        list(
+            map(lambda x: tuple(sciopt.linear_sum_assignment(x)), cost_matrix)))
     ind = matcher_fn(cost_matrix)
 
     for i, ((sp_row, sp_col), (row, col)) in enumerate(zip(sp_ind, ind)):
@@ -330,8 +334,8 @@ class MatchingTest(parameterized.TestCase):
     ind_full = matcher_fn(self.cost_matrix)
     ind_slicer = matchers.slicer(self.cost_matrix, self.cost_n_cols, matcher_fn)
 
-    for i, ((full_row, full_col), (row, col)) in enumerate(
-        zip(ind_full, ind_slicer)):
+    for i, ((full_row, full_col),
+            (row, col)) in enumerate(zip(ind_full, ind_slicer)):
       full_cost = self.cost_matrix[i, full_row, full_col].sum()
       cost = self.cost_matrix[i, row, col].sum()
       self.assertAlmostEqual(full_cost, cost, places=4)
@@ -341,17 +345,17 @@ class MatchingTest(parameterized.TestCase):
   def test_slicer(self, matcher_fn):
     """Simulate padding and ensure that slicer can deal with it."""
     n_cols = self.cost_n_cols // 2
-    mask = np.concatenate((np.ones((1, n_cols[0]), dtype=bool),
-                           np.zeros(
-                               (1, self.num_preds - n_cols[0]), dtype=bool)),
+    mask = np.concatenate((np.ones(
+        (1, n_cols[0]),
+        dtype=bool), np.zeros((1, self.num_preds - n_cols[0]), dtype=bool)),
                           axis=1)
     cost = mask * self.cost_matrix + (1. - mask) * 5
 
     ind_full = matcher_fn(cost)
     ind_slicer = matchers.slicer(cost, n_cols, matcher_fn)
 
-    for i, ((full_row, full_col), (slicer_row, slicer_col)) in enumerate(
-        zip(ind_full, ind_slicer)):
+    for i, ((full_row, full_col),
+            (slicer_row, slicer_col)) in enumerate(zip(ind_full, ind_slicer)):
       full_cost = cost[i, full_row, full_col].sum()
       slicer_cost = cost[i, slicer_row, slicer_col].sum()
       self.assertAlmostEqual(full_cost, slicer_cost, places=3)
@@ -361,17 +365,18 @@ class MatchingTest(parameterized.TestCase):
   def test_slicer_implicit(self, matcher_fn):
     """Ensure that implicit use of slicer works."""
     n_cols = self.cost_n_cols // 2
-    mask = np.concatenate((np.ones((1, n_cols[0]), dtype=bool),
-                           np.zeros(
-                               (1, self.num_preds - n_cols[0]), dtype=bool)),
+    mask = np.concatenate((np.ones(
+        (1, n_cols[0]),
+        dtype=bool), np.zeros((1, self.num_preds - n_cols[0]), dtype=bool)),
                           axis=1)
     cost = mask * self.cost_matrix + (1. - mask) * 5
 
     ind_slicer_impl = matcher_fn(cost, n_cols=n_cols)
     ind_slicer = matchers.slicer(cost, n_cols, matcher_fn)
 
-    for i, ((impl_row, impl_col), (slicer_row, slicer_col)) in enumerate(
-        zip(ind_slicer_impl, ind_slicer)):
+    for i, ((impl_row, impl_col),
+            (slicer_row,
+             slicer_col)) in enumerate(zip(ind_slicer_impl, ind_slicer)):
       impl_cost = cost[i, impl_row, impl_col].sum()
       slicer_cost = cost[i, slicer_row, slicer_col].sum()
       self.assertAlmostEqual(impl_cost, slicer_cost, places=3)
@@ -380,18 +385,18 @@ class MatchingTest(parameterized.TestCase):
       *[(name, MATCHER_FUNCTIONS[name]) for name in RECT_MATCHERS])
   def test_manual_cost_matrix(self, matcher_fn):
     """Test case from bencaine@ for repro."""
-    cost_matrix = jnp.asarray([
-        # We expect (0, 0) and (1, 1) to be matched.
-        [[-100, 100],
-         [100, -100],
-         [100, 100]],
-        # We expect (0, 0) and (2, 1) to be matched.
-        [[-100, 100],
-         [100, 100],
-         [100, -100]]], dtype=jnp.float32)
+    cost_matrix = jnp.asarray(
+        [
+            # We expect (0, 0) and (1, 1) to be matched.
+            [[-100, 100], [100, -100], [100, 100]],
+            # We expect (0, 0) and (2, 1) to be matched.
+            [[-100, 100], [100, 100], [100, -100]]
+        ],
+        dtype=jnp.float32)
 
-    sp_ind = np.array(list(map(lambda x: tuple(sciopt.linear_sum_assignment(x)),
-                               cost_matrix)))
+    sp_ind = np.array(
+        list(
+            map(lambda x: tuple(sciopt.linear_sum_assignment(x)), cost_matrix)))
     ind = matcher_fn(cost_matrix)
     for i, ((sp_row, sp_col), (row, col)) in enumerate(zip(sp_ind, ind)):
       sp_cost = cost_matrix[i, sp_row, sp_col].sum()

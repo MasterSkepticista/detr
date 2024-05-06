@@ -40,10 +40,10 @@ def _replace_dict(model: PyTree,
   # in the nested dictionary to the specific tensor. For instance,
   # {'a': {'b': 1.0, 'c': 2.0'}, 'd': 3.0}
   # -> {('a', 'b'): 1.0, ('a', 'c'): 2.0, ('d',): 3.0}
-  restored_flat = flax.traverse_util.flatten_dict(dict(restored),
-                                                  keep_empty_nodes=True)
-  model_flat = flax.traverse_util.flatten_dict(dict(model),
-                                               keep_empty_nodes=True)
+  restored_flat = flax.traverse_util.flatten_dict(
+      dict(restored), keep_empty_nodes=True)
+  model_flat = flax.traverse_util.flatten_dict(
+      dict(model), keep_empty_nodes=True)
   for m_key, m_params in restored_flat.items():
     for name, to_replace in name_mapping.items():
       m_key = tuple(to_replace if k == name else k for k in m_key)

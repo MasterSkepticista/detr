@@ -131,16 +131,20 @@ class MlpBlock(nn.Module):
                *,
                deterministic: bool = True) -> jnp.ndarray:
     out_dim = self.out_dim or inputs.shape[-1]
-    x = nn.Dense(self.mlp_dim,
-                 dtype=self.dtype,
-                 kernel_init=self.kernel_init,
-                 bias_init=self.bias_init)(inputs)
+    x = nn.Dense(
+        self.mlp_dim,
+        dtype=self.dtype,
+        kernel_init=self.kernel_init,
+        bias_init=self.bias_init)(
+            inputs)
     x = self.activation_fn(x)
     x = nn.Dropout(rate=self.dropout_rate)(x, deterministic)
-    output = nn.Dense(out_dim,
-                      dtype=self.dtype,
-                      kernel_init=self.kernel_init,
-                      bias_init=self.bias_init)(x)
+    output = nn.Dense(
+        out_dim,
+        dtype=self.dtype,
+        kernel_init=self.kernel_init,
+        bias_init=self.bias_init)(
+            x)
     output = nn.Dropout(rate=self.dropout_rate)(output, deterministic)
     return output
 
@@ -218,17 +222,17 @@ class MultiHeadDotProductAttention(nn.Module):
     query, key, value = (add_positional_emb(inputs_q, pos_emb_q),
                          add_positional_emb(inputs_kv, pos_emb_k),
                          add_positional_emb(inputs_kv, pos_emb_v))
-    dense = functools.partial(nn.DenseGeneral,
-                              axis=-1,
-                              features=(self.num_heads, head_dim),
-                              kernel_init=self.kernel_init,
-                              bias_init=self.bias_init,
-                              use_bias=self.use_bias,
-                              dtype=self.dtype)
+    dense = functools.partial(
+        nn.DenseGeneral,
+        axis=-1,
+        features=(self.num_heads, head_dim),
+        kernel_init=self.kernel_init,
+        bias_init=self.bias_init,
+        use_bias=self.use_bias,
+        dtype=self.dtype)
     # Project inputs to multi-headed q/k/v
     # Dimensions are then [bs, ctx, n_heads, n_features_per_head]
-    query, key, value = (dense(name='query')(query),
-                         dense(name='key')(key),
+    query, key, value = (dense(name='query')(query), dense(name='key')(key),
                          dense(name='value')(value))
 
     # Create attention masks
@@ -253,13 +257,15 @@ class MultiHeadDotProductAttention(nn.Module):
         capture_attention_weights=True)
 
     # back to the original inputs dimensions
-    out = nn.DenseGeneral(features=features,
-                          axis=(-2, -1),
-                          kernel_init=self.kernel_init,
-                          bias_init=self.bias_init,
-                          use_bias=True,
-                          dtype=self.dtype,
-                          name='out')(x)
+    out = nn.DenseGeneral(
+        features=features,
+        axis=(-2, -1),
+        kernel_init=self.kernel_init,
+        bias_init=self.bias_init,
+        use_bias=True,
+        dtype=self.dtype,
+        name='out')(
+            x)
     return out
 
 
@@ -312,31 +318,34 @@ class EncoderBlock(nn.Module):
         use_bias=True,
         dtype=self.dtype)
 
-    mlp = MlpBlock(mlp_dim=self.mlp_dim,
-                   dropout_rate=self.dropout_rate,
-                   activation_fn=nn.relu,
-                   dtype=self.dtype)
+    mlp = MlpBlock(
+        mlp_dim=self.mlp_dim,
+        dropout_rate=self.dropout_rate,
+        activation_fn=nn.relu,
+        dtype=self.dtype)
     assert inputs.ndim == 3
     if self.pre_norm:
       x = nn.LayerNorm(dtype=self.dtype)(inputs)
-      x = self_attn(inputs_q=x,
-                    pos_emb_k=pos_embedding,
-                    pos_emb_q=pos_embedding,
-                    pos_emb_v=None,
-                    key_padding_mask=padding_mask,
-                    train=train)
+      x = self_attn(
+          inputs_q=x,
+          pos_emb_k=pos_embedding,
+          pos_emb_q=pos_embedding,
+          pos_emb_v=None,
+          key_padding_mask=padding_mask,
+          train=train)
       x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
       x = x + inputs
       y = nn.LayerNorm(dtype=self.dtype)(x)
       y = mlp(y, deterministic=not train)
       out = x + y
     else:
-      x = self_attn(inputs_q=inputs,
-                    pos_emb_k=pos_embedding,
-                    pos_emb_q=pos_embedding,
-                    pos_emb_v=None,
-                    key_padding_mask=padding_mask,
-                    train=train)
+      x = self_attn(
+          inputs_q=inputs,
+          pos_emb_k=pos_embedding,
+          pos_emb_q=pos_embedding,
+          pos_emb_v=None,
+          key_padding_mask=padding_mask,
+          train=train)
       x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
       x = x + inputs
       x = nn.LayerNorm(dtype=self.dtype)(x)
@@ -415,30 +424,33 @@ class DecoderBlock(nn.Module):
         use_bias=True,
         dtype=self.dtype)
 
-    mlp = MlpBlock(mlp_dim=self.mlp_dim,
-                   dropout_rate=self.dropout_rate,
-                   activation_fn=nn.relu,
-                   dtype=self.dtype)
+    mlp = MlpBlock(
+        mlp_dim=self.mlp_dim,
+        dropout_rate=self.dropout_rate,
+        activation_fn=nn.relu,
+        dtype=self.dtype)
 
     assert obj_queries.ndim == 3
     if self.pre_norm:
       x = nn.LayerNorm(dtype=self.dtype)(obj_queries)
-      x = self_attn(inputs_q=x,
-                    pos_emb_q=query_pos_emb,
-                    pos_emb_k=query_pos_emb,
-                    pos_emb_v=None,
-                    train=train)
+      x = self_attn(
+          inputs_q=x,
+          pos_emb_q=query_pos_emb,
+          pos_emb_k=query_pos_emb,
+          pos_emb_v=None,
+          train=train)
       x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
       x = x + obj_queries
       # cross attention block
       y = nn.LayerNorm(dtype=self.dtype)(x)
-      y = cross_attn(inputs_q=y,
-                     inputs_kv=encoder_output,
-                     pos_emb_q=query_pos_emb,
-                     pos_emb_k=pos_embedding,
-                     pos_emb_v=None,
-                     key_padding_mask=key_padding_mask,
-                     train=train)
+      y = cross_attn(
+          inputs_q=y,
+          inputs_kv=encoder_output,
+          pos_emb_q=query_pos_emb,
+          pos_emb_k=pos_embedding,
+          pos_emb_v=None,
+          key_padding_mask=key_padding_mask,
+          train=train)
       y = nn.Dropout(rate=self.dropout_rate)(y, deterministic=not train)
       y = y + x
       # mlp block
@@ -446,22 +458,24 @@ class DecoderBlock(nn.Module):
       z = mlp(z, deterministic=not train)
       out = z + y
     else:
-      x = self_attn(inputs_q=obj_queries,
-                    pos_emb_q=query_pos_emb,
-                    pos_emb_k=query_pos_emb,
-                    pos_emb_v=None,
-                    train=train)
+      x = self_attn(
+          inputs_q=obj_queries,
+          pos_emb_q=query_pos_emb,
+          pos_emb_k=query_pos_emb,
+          pos_emb_v=None,
+          train=train)
       x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
       x = x + obj_queries
       x = nn.LayerNorm(dtype=self.dtype)(x)
       # cross attn
-      y = cross_attn(inputs_q=x,
-                     inputs_kv=encoder_output,
-                     pos_emb_q=query_pos_emb,
-                     pos_emb_k=pos_embedding,
-                     pos_emb_v=None,
-                     key_padding_mask=key_padding_mask,
-                     train=train)
+      y = cross_attn(
+          inputs_q=x,
+          inputs_kv=encoder_output,
+          pos_emb_q=query_pos_emb,
+          pos_emb_k=pos_embedding,
+          pos_emb_v=None,
+          key_padding_mask=key_padding_mask,
+          train=train)
       y = nn.Dropout(rate=self.dropout_rate)(y, deterministic=not train)
       y = y + x
       y = nn.LayerNorm(dtype=self.dtype)(y)
@@ -495,17 +509,19 @@ class Encoder(nn.Module):
     assert inputs.ndim == 3
     x = inputs
     for lyr in range(self.num_layers):
-      x = EncoderBlock(num_heads=self.num_heads,
-                       qkv_dim=self.qkv_dim,
-                       mlp_dim=self.mlp_dim,
-                       pre_norm=self.normalize_before,
-                       dropout_rate=self.dropout_rate,
-                       attention_dropout_rate=self.attention_dropout_rate,
-                       name=f'encoderblock_{lyr}',
-                       dtype=self.dtype)(x,
-                                         pos_embedding=pos_embedding,
-                                         padding_mask=padding_mask,
-                                         train=train)
+      x = EncoderBlock(
+          num_heads=self.num_heads,
+          qkv_dim=self.qkv_dim,
+          mlp_dim=self.mlp_dim,
+          pre_norm=self.normalize_before,
+          dropout_rate=self.dropout_rate,
+          attention_dropout_rate=self.attention_dropout_rate,
+          name=f'encoderblock_{lyr}',
+          dtype=self.dtype)(
+              x,
+              pos_embedding=pos_embedding,
+              padding_mask=padding_mask,
+              train=train)
     if self.norm is not None:
       x = self.norm(x)
 
@@ -539,19 +555,21 @@ class Decoder(nn.Module):
     y = obj_queries
     outputs = []
     for lyr in range(self.num_layers):
-      y = DecoderBlock(num_heads=self.num_heads,
-                       qkv_dim=self.qkv_dim,
-                       mlp_dim=self.mlp_dim,
-                       pre_norm=self.normalize_before,
-                       dropout_rate=self.dropout_rate,
-                       attention_dropout_rate=self.attention_dropout_rate,
-                       name=f'decoderblock_{lyr}',
-                       dtype=self.dtype)(y,
-                                         encoder_output,
-                                         pos_embedding=pos_embedding,
-                                         query_pos_emb=query_pos_emb,
-                                         key_padding_mask=key_padding_mask,
-                                         train=train)
+      y = DecoderBlock(
+          num_heads=self.num_heads,
+          qkv_dim=self.qkv_dim,
+          mlp_dim=self.mlp_dim,
+          pre_norm=self.normalize_before,
+          dropout_rate=self.dropout_rate,
+          attention_dropout_rate=self.attention_dropout_rate,
+          name=f'decoderblock_{lyr}',
+          dtype=self.dtype)(
+              y,
+              encoder_output,
+              pos_embedding=pos_embedding,
+              query_pos_emb=query_pos_emb,
+              key_padding_mask=key_padding_mask,
+              train=train)
       if self.return_intermediate:
         outputs.append(y)
 
@@ -604,19 +622,21 @@ class DETRTransformer(nn.Module):
                train: bool = False) -> Tuple[jnp.ndarray, jnp.ndarray]:
     encoder_norm = nn.LayerNorm(
         dtype=self.dtype) if self.normalize_before else None
-    encoder_output = Encoder(num_heads=self.num_heads,
-                             num_layers=self.num_encoder_layers,
-                             qkv_dim=self.qkv_dim,
-                             mlp_dim=self.mlp_dim,
-                             normalize_before=self.normalize_before,
-                             norm=encoder_norm,
-                             dropout_rate=self.dropout_rate,
-                             attention_dropout_rate=self.attention_dropout_rate,
-                             dtype=self.dtype,
-                             name='encoder')(inputs,
-                                             padding_mask=padding_mask,
-                                             pos_embedding=pos_embedding,
-                                             train=train)
+    encoder_output = Encoder(
+        num_heads=self.num_heads,
+        num_layers=self.num_encoder_layers,
+        qkv_dim=self.qkv_dim,
+        mlp_dim=self.mlp_dim,
+        normalize_before=self.normalize_before,
+        norm=encoder_norm,
+        dropout_rate=self.dropout_rate,
+        attention_dropout_rate=self.attention_dropout_rate,
+        dtype=self.dtype,
+        name='encoder')(
+            inputs,
+            padding_mask=padding_mask,
+            pos_embedding=pos_embedding,
+            train=train)
 
     query_dim = self.query_emb_size or inputs.shape[-1]
     obj_query_shape = tuple([inputs.shape[0], self.num_queries, query_dim])
@@ -626,22 +646,24 @@ class DETRTransformer(nn.Module):
     obj_queries = jnp.zeros(obj_query_shape)
 
     decoder_norm = nn.LayerNorm(dtype=self.dtype)
-    decoder_output = Decoder(num_heads=self.num_heads,
-                             num_layers=self.num_decoder_layers,
-                             qkv_dim=self.qkv_dim,
-                             mlp_dim=self.mlp_dim,
-                             normalize_before=self.normalize_before,
-                             return_intermediate=self.return_intermediate_dec,
-                             dropout_rate=self.dropout_rate,
-                             attention_dropout_rate=self.attention_dropout_rate,
-                             norm=decoder_norm,
-                             dtype=self.dtype,
-                             name='decoder')(obj_queries,
-                                             encoder_output,
-                                             key_padding_mask=padding_mask,
-                                             pos_embedding=pos_embedding,
-                                             query_pos_emb=query_pos_emb,
-                                             train=train)
+    decoder_output = Decoder(
+        num_heads=self.num_heads,
+        num_layers=self.num_decoder_layers,
+        qkv_dim=self.qkv_dim,
+        mlp_dim=self.mlp_dim,
+        normalize_before=self.normalize_before,
+        return_intermediate=self.return_intermediate_dec,
+        dropout_rate=self.dropout_rate,
+        attention_dropout_rate=self.attention_dropout_rate,
+        norm=decoder_norm,
+        dtype=self.dtype,
+        name='decoder')(
+            obj_queries,
+            encoder_output,
+            key_padding_mask=padding_mask,
+            pos_embedding=pos_embedding,
+            query_pos_emb=query_pos_emb,
+            train=train)
     return decoder_output, encoder_output
 
 
@@ -653,11 +675,12 @@ class ObjectClassPredictor(nn.Module):
   @nn.compact
   def __call__(self, inputs: jnp.ndarray) -> jnp.ndarray:
     bias_range = 1. / np.sqrt(inputs.shape[-1])
-    return nn.Dense(self.num_classes,
-                    kernel_init=pytorch_kernel_init(dtype=self.dtype),
-                    bias_init=uniform_initializer(-bias_range, bias_range,
-                                                  self.dtype),
-                    dtype=self.dtype)(inputs)
+    return nn.Dense(
+        self.num_classes,
+        kernel_init=pytorch_kernel_init(dtype=self.dtype),
+        bias_init=uniform_initializer(-bias_range, bias_range, self.dtype),
+        dtype=self.dtype)(
+            inputs)
 
 
 class BBoxCoordPredictor(nn.Module):
@@ -671,21 +694,23 @@ class BBoxCoordPredictor(nn.Module):
     for _ in range(self.num_layers - 1):
       # This is like pytorch initializes biases in linear layers.
       bias_range = 1 / np.sqrt(x.shape[-1])
-      x = nn.Dense(self.mlp_dim,
-                   kernel_init=pytorch_kernel_init(dtype=self.dtype),
-                   bias_init=uniform_initializer(-bias_range,
-                                                 bias_range,
-                                                 dtype=self.dtype),
-                   dtype=self.dtype)(x)
+      x = nn.Dense(
+          self.mlp_dim,
+          kernel_init=pytorch_kernel_init(dtype=self.dtype),
+          bias_init=uniform_initializer(
+              -bias_range, bias_range, dtype=self.dtype),
+          dtype=self.dtype)(
+              x)
       x = nn.relu(x)
 
     bias_range = 1 / np.sqrt(x.shape[-1])
-    x = nn.Dense(4,
-                 kernel_init=pytorch_kernel_init(dtype=self.dtype),
-                 bias_init=uniform_initializer(-bias_range,
-                                               bias_range,
-                                               dtype=self.dtype),
-                 dtype=self.dtype)(x)
+    x = nn.Dense(
+        4,
+        kernel_init=pytorch_kernel_init(dtype=self.dtype),
+        bias_init=uniform_initializer(
+            -bias_range, bias_range, dtype=self.dtype),
+        dtype=self.dtype)(
+            x)
     output = nn.sigmoid(x)
     return output
 
@@ -752,10 +777,12 @@ class DETR(nn.Module):
     assert self.transformer_qkv_dim == self.hidden_dim
 
     del update_batch_stats  # Not required for BiT
-    _, backbone_features = bit.ResNet(width=self.backbone_width,
-                                      depth=self.backbone_depth,
-                                      dtype=self.dtype,
-                                      name='backbone')(inputs, train=train)
+    _, backbone_features = bit.ResNet(
+        width=self.backbone_width,
+        depth=self.backbone_depth,
+        dtype=self.dtype,
+        name='backbone')(
+            inputs, train=train)
     x = backbone_features['pre_logits_2d']
     bs, h, w, _ = x.shape
 
@@ -766,17 +793,19 @@ class DETR(nn.Module):
           padding_mask.astype(jnp.float32), shape=(bs, h, w),
           method='nearest').astype(jnp.bool_)
 
-    pos_emb = InputPosEmbeddingSine(
-        hidden_dim=self.hidden_dim)(padding_mask_downsampled)
+    pos_emb = InputPosEmbeddingSine(hidden_dim=self.hidden_dim)(
+        padding_mask_downsampled)
 
-    query_pos_emb = QueryPosEmbedding(hidden_dim=self.hidden_dim,
-                                      num_queries=self.num_queries)()
+    query_pos_emb = QueryPosEmbedding(
+        hidden_dim=self.hidden_dim, num_queries=self.num_queries)()
 
     # Project and reshape features to 3 dimensions.
-    x = nn.Conv(features=self.hidden_dim,
-                kernel_size=(1, 1),
-                strides=(1, 1),
-                dtype=self.dtype)(x)
+    x = nn.Conv(
+        features=self.hidden_dim,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        dtype=self.dtype)(
+            x)
     x = x.reshape(bs, h * w, self.hidden_dim)
 
     transformer_input = x
@@ -805,10 +834,12 @@ class DETR(nn.Module):
 
     def output_projection(model_output):
       # classification head
-      pred_logits = ObjectClassPredictor(num_classes=self.num_classes,
-                                         dtype=self.dtype)(model_output)
-      pred_boxes = BBoxCoordPredictor(mlp_dim=self.hidden_dim,
-                                      dtype=self.dtype)(model_output)
+      pred_logits = ObjectClassPredictor(
+          num_classes=self.num_classes, dtype=self.dtype)(
+              model_output)
+      pred_boxes = BBoxCoordPredictor(
+          mlp_dim=self.hidden_dim, dtype=self.dtype)(
+              model_output)
       return pred_logits, pred_boxes
 
     if not self.aux_loss:
@@ -836,25 +867,23 @@ class DETR(nn.Module):
 class DETRModel(detr_base_model.ObjectDetectionWithMatchingModel):
 
   def build_flax_model(self):
-    return DETR(num_classes=self.dataset_meta_data['num_classes'],
-                hidden_dim=self.config.get('hidden_dim', 512),
-                num_queries=self.config.get('num_queries', 100),
-                query_emb_size=self.config.get('query_emb_size', None),
-                transformer_num_heads=self.config.get('transformer_num_heads',
-                                                      8),
-                transformer_num_encoder_layers=self.config.get(
-                    'transformer_num_encoder_layers', 6),
-                transformer_num_decoder_layers=self.config.get(
-                    'transformer_num_decoder_layers', 6),
-                transformer_qkv_dim=self.config.get('transformer_qkv_dim', 512),
-                transformer_mlp_dim=self.config.get('transformer_mlp_dim',
-                                                    2048),
-                transformer_normalize_before=self.config.get(
-                    'transformer_normalize_before', False),
-                backbone_width=self.config.get('backbone_width', 1),
-                backbone_depth=self.config.get('backbone_depth', 50),
-                aux_loss=self.config.get('aux_loss', False),
-                dropout_rate=self.config.get('dropout_rate', 0.0),
-                attention_dropout_rate=self.config.get('attention_dropout_rate',
-                                                       0.0),
-                dtype=self.config.get('model_dtype_str', jnp.float32))
+    return DETR(
+        num_classes=self.dataset_meta_data['num_classes'],
+        hidden_dim=self.config.get('hidden_dim', 512),
+        num_queries=self.config.get('num_queries', 100),
+        query_emb_size=self.config.get('query_emb_size', None),
+        transformer_num_heads=self.config.get('transformer_num_heads', 8),
+        transformer_num_encoder_layers=self.config.get(
+            'transformer_num_encoder_layers', 6),
+        transformer_num_decoder_layers=self.config.get(
+            'transformer_num_decoder_layers', 6),
+        transformer_qkv_dim=self.config.get('transformer_qkv_dim', 512),
+        transformer_mlp_dim=self.config.get('transformer_mlp_dim', 2048),
+        transformer_normalize_before=self.config.get(
+            'transformer_normalize_before', False),
+        backbone_width=self.config.get('backbone_width', 1),
+        backbone_depth=self.config.get('backbone_depth', 50),
+        aux_loss=self.config.get('aux_loss', False),
+        dropout_rate=self.config.get('dropout_rate', 0.0),
+        attention_dropout_rate=self.config.get('attention_dropout_rate', 0.0),
+        dtype=self.config.get('model_dtype_str', jnp.float32))

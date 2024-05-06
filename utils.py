@@ -92,18 +92,10 @@ def create_learning_rate_schedule(total_steps,
   Returns:
     A function learning_rate(step): float -> {"learning_rate": float}.
   """
-  warmup_steps = steps("warmup",
-                       kw,
-                       data_size,
-                       batch_size,
-                       total_steps,
-                       default=0)
-  cooldown_steps = steps("cooldown",
-                         kw,
-                         data_size,
-                         batch_size,
-                         total_steps,
-                         default=0)
+  warmup_steps = steps(
+      "warmup", kw, data_size, batch_size, total_steps, default=0)
+  cooldown_steps = steps(
+      "cooldown", kw, data_size, batch_size, total_steps, default=0)
 
   assert (total_steps <= 1) or (warmup_steps < total_steps), (
       "warmup_steps is >= total_steps")

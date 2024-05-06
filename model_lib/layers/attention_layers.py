@@ -33,8 +33,9 @@ def _attention_dropout(attn_weights: jnp.ndarray,
     keep = jax.random.bernoulli(dropout_rng, keep_prob, dropout_shape)
   else:
     keep = jax.random.bernoulli(dropout_rng, keep_prob, attn_weights.shape)
-  multiplier = (keep.astype(attn_weights.dtype) /
-                jnp.asarray(keep_prob, dtype=attn_weights.dtype))
+  multiplier = (
+      keep.astype(attn_weights.dtype) /
+      jnp.asarray(keep_prob, dtype=attn_weights.dtype))
   return attn_weights * multiplier
 
 
@@ -93,10 +94,8 @@ def dot_product_attention(
   depth = query.shape[-1]
   query = query / jnp.sqrt(depth).astype(dtype)
   # attn weight shape is (batch..., num_heads, q_length, kv_length)
-  attn_weights = jnp.einsum('...qhd,...khd->...hqk',
-                            query,
-                            key,
-                            precision=precision)
+  attn_weights = jnp.einsum(
+      '...qhd,...khd->...hqk', query, key, precision=precision)
 
   # Apply attention bias
   if bias is not None:
@@ -115,13 +114,12 @@ def dot_product_attention(
       raise ValueError(
           'Did not provide `dropout_rng` to dot_product_attention()')
     else:
-      attn_weights = _attention_dropout(attn_weights,
-                                        rate=dropout_rate,
-                                        broadcast=broadcast_dropout,
-                                        dropout_rng=dropout_rng)
+      attn_weights = _attention_dropout(
+          attn_weights,
+          rate=dropout_rate,
+          broadcast=broadcast_dropout,
+          dropout_rng=dropout_rng)
 
   # Return weighted sum over values for each query position.
-  return jnp.einsum('...hqk,...khd->...qhd',
-                    attn_weights,
-                    value,
-                    precision=precision)
+  return jnp.einsum(
+      '...hqk,...khd->...qhd', attn_weights, value, precision=precision)

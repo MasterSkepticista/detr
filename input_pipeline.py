@@ -124,9 +124,10 @@ def load_split_from_tfds(
 
   split = 'train' if train else 'validation'
   data_range = tfds.even_splits(split, jax.process_count())[jax.process_index()]
-  ds = builder.as_dataset(data_range,
-                          shuffle_files=False,
-                          decoders={'image': tfds.decode.SkipDecoding()})
+  ds = builder.as_dataset(
+      data_range,
+      shuffle_files=False,
+      decoders={'image': tfds.decode.SkipDecoding()})
   options = tf.data.Options()
   options.threading.private_threadpool_size = 48
   ds = ds.with_options(options)
@@ -177,33 +178,34 @@ def build_pipeline(*, rng, batch_size: int, eval_batch_size: int,
   train_preprocess_fn = make_coco_transforms('train', max_size)
   eval_preprocess_fn = make_coco_transforms('validation', max_size)
 
-  decode_fn = partial(decode_coco_detection_example,
-                      input_range=dataset_configs.get('input_range'))
-  train_ds, ds_info = load_split_from_tfds(builder,
-                                           train=True,
-                                           batch_size=batch_size,
-                                           decode_fn=decode_fn,
-                                           preprocess_fn=train_preprocess_fn,
-                                           max_size=max_size,
-                                           max_boxes=max_boxes)
+  decode_fn = partial(
+      decode_coco_detection_example,
+      input_range=dataset_configs.get('input_range'))
+  train_ds, ds_info = load_split_from_tfds(
+      builder,
+      train=True,
+      batch_size=batch_size,
+      decode_fn=decode_fn,
+      preprocess_fn=train_preprocess_fn,
+      max_size=max_size,
+      max_boxes=max_boxes)
 
-  eval_ds, _ = load_split_from_tfds(builder,
-                                    train=False,
-                                    batch_size=eval_batch_size,
-                                    decode_fn=decode_fn,
-                                    preprocess_fn=eval_preprocess_fn,
-                                    max_size=max_size,
-                                    max_boxes=max_boxes)
+  eval_ds, _ = load_split_from_tfds(
+      builder,
+      train=False,
+      batch_size=eval_batch_size,
+      decode_fn=decode_fn,
+      preprocess_fn=eval_preprocess_fn,
+      max_size=max_size,
+      max_boxes=max_boxes)
 
   # 0 is the background class, dataset classes run from 1..N
   num_classes = ds_info.features['objects']['label'].num_classes + 1
 
-  maybe_pad_batches_train = partial(dataset_utils.maybe_pad_batch,
-                                    train=True,
-                                    batch_size=batch_size)
-  maybe_pad_batches_eval = partial(dataset_utils.maybe_pad_batch,
-                                   train=False,
-                                   batch_size=eval_batch_size)
+  maybe_pad_batches_train = partial(
+      dataset_utils.maybe_pad_batch, train=True, batch_size=batch_size)
+  maybe_pad_batches_eval = partial(
+      dataset_utils.maybe_pad_batch, train=False, batch_size=eval_batch_size)
   shard_batches = partial(dataset_utils.shard, num_shards=num_shards)
 
   train_iter = iter(train_ds)

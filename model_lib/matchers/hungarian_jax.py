@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """JAX-based Hungarian matcher implementation."""
 
 import jax
@@ -97,8 +96,8 @@ def hungarian_single(cost):
 
     # Backtrack the DFS path
     init_state = (parent, j0)
-    parent, _ = jax.lax.while_loop(
-        update_parent_cond_fn, update_parent_body_fn, init_state)
+    parent, _ = jax.lax.while_loop(update_parent_cond_fn, update_parent_body_fn,
+                                   init_state)
 
     return (u, v, parent), None
 
@@ -108,8 +107,8 @@ def hungarian_single(cost):
   parent = jnp.zeros((m + 1,), dtype=jnp.int32)
 
   init_state = (u, v, parent)
-  (u, v, parent), _ = jax.lax.scan(
-      row_scan_fn, init_state, jnp.arange(1, n + 1))
+  (u, v, parent), _ = jax.lax.scan(row_scan_fn, init_state,
+                                   jnp.arange(1, n + 1))
 
   # -v[0] is the matching cost, but not returned to match the signature all
   # other matchers.
@@ -128,8 +127,10 @@ def hungarian_single(cost):
 
 def hungarian_scan(cost):
   """A scan-based batch version of the hungarian matching."""
+
   def hungarian_fn(_, cost):
     return None, hungarian_single(cost)
+
   _, indices = jax.lax.scan(hungarian_fn, None, cost, unroll=1)
   return indices
 

@@ -30,13 +30,15 @@ class RootBlock(nn.Module):
 
   @nn.compact
   def __call__(self, x):
-    x = StdConv(self.width,
-                kernel_size=(7, 7),
-                strides=(2, 2),
-                padding=[(3, 3), (3, 3)],
-                use_bias=False,
-                name='conv_root',
-                dtype=self.dtype)(x)
+    x = StdConv(
+        self.width,
+        kernel_size=(7, 7),
+        strides=(2, 2),
+        padding=[(3, 3), (3, 3)],
+        use_bias=False,
+        name='conv_root',
+        dtype=self.dtype)(
+            x)
     x = nn.max_pool(x, (3, 3), strides=(2, 2), padding=[(1, 1), (1, 1)])
     return x
 
@@ -59,18 +61,20 @@ class BottleneckUnit(nn.Module):
     x = nn.relu(x)
 
     if x.shape[-1] != out_filters or self.strides != (1, 1):
-      residual = conv(out_filters, (1, 1),
-                      strides=self.strides,
-                      name='conv_proj')(x)
+      residual = conv(
+          out_filters, (1, 1), strides=self.strides, name='conv_proj')(
+              x)
 
     x = conv(self.filters, (1, 1), name='conv1')(x)
 
     x = norm(name='gn2')(x)
     x = nn.relu(x)
-    x = conv(self.filters, (3, 3),
-             self.strides,
-             padding=[(1, 1), (1, 1)],
-             name='conv2')(x)
+    x = conv(
+        self.filters, (3, 3),
+        self.strides,
+        padding=[(1, 1), (1, 1)],
+        name='conv2')(
+            x)
 
     x = norm(name='gn3')(x)
     x = nn.relu(x)
@@ -89,14 +93,13 @@ class Stage(nn.Module):
   @nn.compact
   def __call__(self, x):
     out = {}
-    x = out["unit01"] = BottleneckUnit(self.filters,
-                                       self.first_stride,
-                                       name='unit01',
-                                       dtype=self.dtype)(x)
+    x = out["unit01"] = BottleneckUnit(
+        self.filters, self.first_stride, name='unit01', dtype=self.dtype)(
+            x)
     for i in range(1, self.size):
-      x = out[f'unit{i+1:02d}'] = BottleneckUnit(self.filters,
-                                                 name=f'unit{i+1:02d}',
-                                                 dtype=self.dtype)(x)
+      x = out[f'unit{i+1:02d}'] = BottleneckUnit(
+          self.filters, name=f'unit{i+1:02d}', dtype=self.dtype)(
+              x)
     return x, out
 
 
@@ -116,28 +119,31 @@ class ResNet(nn.Module):
     x = out['stem'] = RootBlock(width, dtype=self.dtype, name='root_block')(x)
 
     # Stage 1: No downsampling with stride as root block already does once.
-    x, out['stage1'] = Stage(blocks[0],
-                             filters=width,
-                             name='block1',
-                             dtype=self.dtype)(x)
+    x, out['stage1'] = Stage(
+        blocks[0], filters=width, name='block1', dtype=self.dtype)(
+            x)
     for i, block_size in enumerate(blocks[1:], 1):
-      x, out[f'stage{i+1}'] = Stage(block_size,
-                                    filters=width * 2**i,
-                                    first_stride=(2, 2),
-                                    name=f'block{i+1}',
-                                    dtype=self.dtype)(x)
+      x, out[f'stage{i+1}'] = Stage(
+          block_size,
+          filters=width * 2**i,
+          first_stride=(2, 2),
+          name=f'block{i+1}',
+          dtype=self.dtype)(
+              x)
     # Pre-head
-    x = out['norm_pre_head'] = nn.GroupNorm(dtype=self.dtype,
-                                            name='norm-pre-head')(x)
+    x = out['norm_pre_head'] = nn.GroupNorm(
+        dtype=self.dtype, name='norm-pre-head')(
+            x)
     x = out['pre_logits_2d'] = nn.relu(x)
 
     # Head
     if self.num_classes:
       x = out['pre_logits'] = jnp.mean(x, axis=(1, 2))
-      head = nn.Dense(self.num_classes,
-                      name='head',
-                      kernel_init=nn.initializers.zeros,
-                      dtype=self.dtype)
+      head = nn.Dense(
+          self.num_classes,
+          name='head',
+          kernel_init=nn.initializers.zeros,
+          dtype=self.dtype)
       x = out['logits'] = head(x)
     return x, out
 

@@ -11,11 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Sinkhorn matcher.
 
 """
-
 
 from typing import Optional
 import jax
@@ -88,8 +86,8 @@ def sample_best_permutation(key, coupling, cost, num_trials=10):
     Permutation matrix: jnp.ndarray of shape [N, N] of floating point type.
       This is the permutation matrix with lowest optimal transport cost.
   """
-  vec_sample_permutation = jax.vmap(sample_permutation, in_axes=(0, None),
-                                    out_axes=0)
+  vec_sample_permutation = jax.vmap(
+      sample_permutation, in_axes=(0, None), out_axes=0)
   key = jax.random.split(key, num_trials)
   perms = vec_sample_permutation(key, coupling)
 
@@ -126,13 +124,15 @@ def sinkhorn_matcher(cost: jnp.ndarray,
   Returns:
     An assignment of size [B, 2, N].
   """
+
   def coupling_fn(c):
     geom = geometry.Geometry(
         cost_matrix=c, epsilon=epsilon, init=init, decay=decay)
-    return transport.solve(geom,
-                           max_iterations=num_iters,
-                           chg_momentum_from=chg_momentum_from,
-                           threshold=threshold).matrix
+    return transport.solve(
+        geom,
+        max_iterations=num_iters,
+        chg_momentum_from=chg_momentum_from,
+        threshold=threshold).matrix
 
   coupling = jax.vmap(coupling_fn)(cost)
 

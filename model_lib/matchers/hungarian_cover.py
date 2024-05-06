@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """TPU-friendly Hungarian matching algorithm.
 
 JAX implementation the Linear Sum Assignment problem solver. This implementation
@@ -20,7 +19,6 @@ builds off of the Hungarian Matching Algorithm
 
 Based on the original implementation by Jiquan Ngiam <jngiam@google.com>.
 """
-
 
 from typing import Tuple, Optional, Dict
 
@@ -94,8 +92,7 @@ def _greedy_assignment(adj_matrix: jnp.ndarray) -> jnp.ndarray:
 
   # Store the elements assigned to each column to update each iteration.
   col_assigned = jnp.zeros((b, m), dtype=jnp.bool_)
-  _, assignment = jax.lax.scan(
-      _assign_row, col_assigned, adj_matrix)
+  _, assignment = jax.lax.scan(_assign_row, col_assigned, adj_matrix)
 
   # To (b, n, m)
   assignment = jnp.transpose(assignment, axes=(1, 0, 2))
@@ -150,14 +147,16 @@ def _find_augmenting_path(assignment: jnp.ndarray,
   # Initialize unassigned workers to have non-zero ids, assigned workers will
   # have ids = 0.
   worker_indices = jnp.arange(1, n + 1, dtype=jnp.int32)
-  init_workers = jnp.tile(
-      worker_indices[jnp.newaxis, :, jnp.newaxis], (b, 1, 1))
+  init_workers = jnp.tile(worker_indices[jnp.newaxis, :, jnp.newaxis],
+                          (b, 1, 1))
   init_workers = init_workers * unassigned_workers.astype(jnp.int32)
 
-  state = {'jobs': jnp.zeros((b, 1, m), dtype=jnp.int32),
-           'jobs_from_worker': jnp.zeros((b, m), dtype=jnp.int32),
-           'workers': init_workers,
-           'workers_from_job': jnp.zeros((b, n), dtype=jnp.int32),}
+  state = {
+      'jobs': jnp.zeros((b, 1, m), dtype=jnp.int32),
+      'jobs_from_worker': jnp.zeros((b, m), dtype=jnp.int32),
+      'workers': init_workers,
+      'workers_from_job': jnp.zeros((b, n), dtype=jnp.int32),
+  }
 
   def _has_active_workers(arg):
     """Check if there are still active workers."""
@@ -176,8 +175,8 @@ def _find_augmenting_path(assignment: jnp.ndarray,
     # Remove already accessible jobs from curr_jobs.
     default_jobs = jnp.zeros_like(state['jobs'])
     curr_jobs = jnp.where(state['jobs'] > 0, default_jobs, curr_jobs)
-    curr_jobs_from_worker = (curr_jobs_from_worker *
-                             (curr_jobs > 0).astype(jnp.int32)[:, 0, :])
+    curr_jobs_from_worker = (
+        curr_jobs_from_worker * (curr_jobs > 0).astype(jnp.int32)[:, 0, :])
 
     # Find potential workers from current jobs.
     potential_workers = curr_jobs * existing_pairings
@@ -186,23 +185,22 @@ def _find_augmenting_path(assignment: jnp.ndarray,
 
     # Remove already accessible workers from cur_workers.
     default_workers = jnp.zeros_like(state['workers'])
-    cur_workers = jnp.where(
-        state['workers'] > 0, default_workers, cur_workers)
-    cur_workers_from_job = (cur_workers_from_job *
-                            (cur_workers > 0).astype(jnp.int32)[:, :, 0])
+    cur_workers = jnp.where(state['workers'] > 0, default_workers, cur_workers)
+    cur_workers_from_job = (
+        cur_workers_from_job * (cur_workers > 0).astype(jnp.int32)[:, :, 0])
 
     # Update state so that we can backtrack later.
     state['jobs'] = jnp.maximum(state['jobs'], curr_jobs)
-    state['jobs_from_worker'] = jnp.maximum(
-        state['jobs_from_worker'], curr_jobs_from_worker)
+    state['jobs_from_worker'] = jnp.maximum(state['jobs_from_worker'],
+                                            curr_jobs_from_worker)
     state['workers'] = jnp.maximum(state['workers'], cur_workers)
-    state['workers_from_job'] = jnp.maximum(
-        state['workers_from_job'], cur_workers_from_job)
+    state['workers_from_job'] = jnp.maximum(state['workers_from_job'],
+                                            cur_workers_from_job)
 
     return state, cur_workers
 
-  state, _ = jax.lax.while_loop(
-      _has_active_workers, _augment_step, (state, init_workers))
+  state, _ = jax.lax.while_loop(_has_active_workers, _augment_step,
+                                (state, init_workers))
 
   # Compute new jobs, this is useful for determnining termnination of the
   # maximum bi-partite matching and initialization for backtracking.
@@ -296,17 +294,17 @@ def _improve_assignment(assignment: jnp.ndarray,
 
     return flip_matrix, active, curr_job_idx
 
-  flip_matrix, _, _ = jax.lax.while_loop(
-      _has_active_backtracks,
-      _backtrack_one_step,
-      (flip_matrix, active, curr_job_idx))
+  flip_matrix, _, _ = jax.lax.while_loop(_has_active_backtracks,
+                                         _backtrack_one_step,
+                                         (flip_matrix, active, curr_job_idx))
 
   assignment = jnp.logical_xor(assignment, flip_matrix > 0)
   return assignment
 
 
 def _maximum_bipartite_matching(
-    adj_matrix: jnp.ndarray, assignment: Optional[jnp.ndarray] = None
+    adj_matrix: jnp.ndarray,
+    assignment: Optional[jnp.ndarray] = None
 ) -> Tuple[Dict[str, jnp.ndarray], jnp.ndarray]:
   """Performs maximum bipartite matching using augmented paths.
 
@@ -337,17 +335,15 @@ def _maximum_bipartite_matching(
     state = _find_augmenting_path(assignment, adj_matrix)
     return state, assignment
 
-  state, assignment = jax.lax.while_loop(
-      _has_new_jobs,
-      _improve_assignment_and_find_new_path,
-      (state, assignment))
+  state, assignment = jax.lax.while_loop(_has_new_jobs,
+                                         _improve_assignment_and_find_new_path,
+                                         (state, assignment))
 
   return state, assignment
 
 
-def _compute_cover(
-    state: Dict[str, jnp.ndarray], assignment: jnp.ndarray
-) -> Tuple[jnp.ndarray, jnp.ndarray]:
+def _compute_cover(state: Dict[str, jnp.ndarray],
+                   assignment: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
   """Computes a cover for the bipartite graph.
 
   We compute a cover using the construction provided at
@@ -398,12 +394,11 @@ def _update_weights_using_cover(workers_cover: jnp.ndarray,
   covered = jnp.logical_or(workers_cover, jobs_cover)
   double_covered = jnp.logical_and(workers_cover, jobs_cover)
 
-  uncovered_weights = jnp.where(
-      covered, jnp.full_like(weights, max_value), weights)
+  uncovered_weights = jnp.where(covered, jnp.full_like(weights, max_value),
+                                weights)
   min_weight = jnp.min(uncovered_weights, axis=(-2, -1), keepdims=True)
 
-  add_weight = jnp.where(double_covered,
-                         jnp.full_like(weights, min_weight),
+  add_weight = jnp.where(double_covered, jnp.full_like(weights, min_weight),
                          jnp.zeros_like(weights))
   sub_weight = jnp.where(covered, jnp.zeros_like(weights),
                          jnp.full_like(weights, min_weight))
@@ -447,8 +442,9 @@ def hungarian_cover_matcher(weights: jnp.ndarray,
 
   def _cover_incomplete(arg):
     workers_cover, jobs_cover, _, _ = arg
-    cover_sum = (jnp.sum(workers_cover, dtype=jnp.int32) +
-                 jnp.sum(jobs_cover, dtype=jnp.int32))
+    cover_sum = (
+        jnp.sum(workers_cover, dtype=jnp.int32) +
+        jnp.sum(jobs_cover, dtype=jnp.int32))
     return cover_sum < b * n
 
   def _update_weights_and_match(arg):
@@ -460,8 +456,7 @@ def hungarian_cover_matcher(weights: jnp.ndarray,
     return workers_cover, jobs_cover, weights, assignment
 
   workers_cover, jobs_cover, weights, assignment = jax.lax.while_loop(
-      _cover_incomplete,
-      _update_weights_and_match,
+      _cover_incomplete, _update_weights_and_match,
       (workers_cover, jobs_cover, weights, assignment))
 
   workers_ind = jnp.broadcast_to(jnp.arange(n), (b, n))

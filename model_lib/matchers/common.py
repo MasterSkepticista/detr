@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Common functions for computing matchings."""
 
 import jax
@@ -91,6 +90,7 @@ def cpu_matcher(matching_fn):
   Returns:
     Matching function with host callback that can be jitted.
   """
+
   # The callback function can only take a single argument.
   def slice_and_match(args):
     cost, ncol = args
@@ -101,8 +101,7 @@ def cpu_matcher(matching_fn):
     *b, n, m = cost.shape
     return jax.pure_callback(
         slice_and_match,
-        jax.ShapeDtypeStruct(b + [2, min(n, m)], jnp.int32),
-        (cost, n_cols),
+        jax.ShapeDtypeStruct(b + [2, min(n, m)], jnp.int32), (cost, n_cols),
         vectorized=True)
 
   # Define forward and backward passes.

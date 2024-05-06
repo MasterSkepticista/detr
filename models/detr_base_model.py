@@ -96,10 +96,11 @@ def compute_cost(
   cost = cost * mask + (1.0 - mask) * cost_upper_bound
 
   # Guard against NaNs and Infs
-  cost = jnp.nan_to_num(cost,
-                        nan=cost_upper_bound,
-                        posinf=cost_upper_bound,
-                        neginf=cost_upper_bound)
+  cost = jnp.nan_to_num(
+      cost,
+      nan=cost_upper_bound,
+      posinf=cost_upper_bound,
+      neginf=cost_upper_bound)
   assert cost.shape == (batch_size, num_queries, max_num_boxes)
 
   # Compute the number of unpadded columns for each batch element.
@@ -403,8 +404,8 @@ class BaseModelWithMatching(base_model.BaseModel):
       instance = jax.nn.one_hot(0, num_classes)
       reshape_shape = (1,) * (len(label_shape) - 1) + (num_classes,)
       broadcast_shape = label_shape[:-2] + (1, num_classes)
-      instance = jnp.broadcast_to(jnp.reshape(instance, reshape_shape),
-                                  broadcast_shape)
+      instance = jnp.broadcast_to(
+          jnp.reshape(instance, reshape_shape), broadcast_shape)
     else:
       instance = jnp.zeros_like(batch['label']['labels'][..., :1])
     batch['label']['labels'] = jnp.concatenate(

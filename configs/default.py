@@ -12,10 +12,10 @@ def get_config():
   config.dataset_configs.name = 'coco/2017'
   config.dataset_configs.max_size = 640
   config.dataset_configs.max_boxes = 100
-  config.dataset_configs.input_range = (-1, 1)
+  config.dataset_configs.input_range = (-1., 1.)
 
   # Model config
-  config.model_dtype_str = 'float32'
+  config.model_dtype_str = 'bfloat16'
   config.matcher = 'hungarian_cover_tpu'
   config.hidden_dim = 256
   config.num_queries = 100
