@@ -1,3 +1,4 @@
+"""Trainer and Evaluator for DETR."""
 import functools
 import time
 from concurrent import futures

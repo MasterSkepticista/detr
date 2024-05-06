@@ -279,7 +279,7 @@ def save_checkpoint(workdir: str,
         checkpoint_state,
         int(checkpoint_state.global_step),
         overwrite=overwrite,
-        max_to_keep=max_to_keep,
+        keep=max_to_keep,
         **kwargs,
     )
 
