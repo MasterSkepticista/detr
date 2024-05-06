@@ -130,10 +130,10 @@ class ResNet(nn.Module):
     x = out['norm_pre_head'] = nn.GroupNorm(dtype=self.dtype,
                                             name='norm-pre-head')(x)
     x = out['pre_logits_2d'] = nn.relu(x)
-    x = out['pre_logits'] = jnp.mean(x, axis=(1, 2))
 
     # Head
     if self.num_classes:
+      x = out['pre_logits'] = jnp.mean(x, axis=(1, 2))
       head = nn.Dense(self.num_classes,
                       name='head',
                       kernel_init=nn.initializers.zeros,

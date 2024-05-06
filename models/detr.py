@@ -119,7 +119,7 @@ class MlpBlock(nn.Module):
   """Transformer Mlp/Feedforward block."""
   mlp_dim: int
   out_dim: Optional[int] = None
-  dropout_rate: float = 0.0
+  dropout_rate: float = 0.1
   kernel_init: Callable[..., Any] = nn.initializers.xavier_uniform()
   bias_init: Callable[..., Any] = nn.initializers.normal(stddev=1e-6)
   activation_fn: Callable[[jnp.ndarray], jnp.ndarray] = nn.gelu
@@ -141,6 +141,7 @@ class MlpBlock(nn.Module):
                       dtype=self.dtype,
                       kernel_init=self.kernel_init,
                       bias_init=self.bias_init)(x)
+    output = nn.Dropout(rate=self.dropout_rate)(output, deterministic)
     return output
 
 
@@ -226,9 +227,9 @@ class MultiHeadDotProductAttention(nn.Module):
                               dtype=self.dtype)
     # Project inputs to multi-headed q/k/v
     # Dimensions are then [bs, ctx, n_heads, n_features_per_head]
-    query, key, value = (dense(name='query')(inputs_q),
-                         dense(name='key')(inputs_kv),
-                         dense(name='value')(inputs_kv))
+    query, key, value = (dense(name='query')(query),
+                         dense(name='key')(key),
+                         dense(name='value')(value))
 
     # Create attention masks
     if key_padding_mask is not None:
@@ -327,7 +328,7 @@ class EncoderBlock(nn.Module):
       x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
       x = x + inputs
       y = nn.LayerNorm(dtype=self.dtype)(x)
-      x = mlp(y, deterministic=not train)
+      y = mlp(y, deterministic=not train)
       out = x + y
     else:
       x = self_attn(inputs_q=inputs,
@@ -340,8 +341,8 @@ class EncoderBlock(nn.Module):
       x = x + inputs
       x = nn.LayerNorm(dtype=self.dtype)(x)
       y = mlp(x, deterministic=not train)
-      x = x + y
-      out = nn.LayerNorm(dtype=self.dtype)(x)
+      y = x + y
+      out = nn.LayerNorm(dtype=self.dtype)(y)
 
     return out
 
@@ -428,7 +429,6 @@ class DecoderBlock(nn.Module):
                     pos_emb_v=None,
                     train=train)
       x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
-      x = nn.LayerNorm(dtype=self.dtype)(x)
       x = x + obj_queries
       # cross attention block
       y = nn.LayerNorm(dtype=self.dtype)(x)
@@ -439,7 +439,7 @@ class DecoderBlock(nn.Module):
                      pos_emb_v=None,
                      key_padding_mask=key_padding_mask,
                      train=train)
-      y = nn.Dropout(rate=self.dropout)(y, deterministic=not train)
+      y = nn.Dropout(rate=self.dropout_rate)(y, deterministic=not train)
       y = y + x
       # mlp block
       z = nn.LayerNorm(dtype=self.dtype)(y)
@@ -537,7 +537,7 @@ class Decoder(nn.Module):
     assert encoder_output.ndim == 3
     assert obj_queries.ndim == 3
     y = obj_queries
-    intermediates = []
+    outputs = []
     for lyr in range(self.num_layers):
       y = DecoderBlock(num_heads=self.num_heads,
                        qkv_dim=self.qkv_dim,
@@ -552,10 +552,11 @@ class Decoder(nn.Module):
                                          query_pos_emb=query_pos_emb,
                                          key_padding_mask=key_padding_mask,
                                          train=train)
-      intermediates.append(y)
+      if self.return_intermediate:
+        outputs.append(y)
 
     if self.return_intermediate:
-      y = jnp.stack(intermediates, axis=0)
+      y = jnp.stack(outputs, axis=0)
 
     if self.norm is not None:
       y = self.norm(y)
@@ -755,7 +756,7 @@ class DETR(nn.Module):
                                       depth=self.backbone_depth,
                                       dtype=self.dtype,
                                       name='backbone')(inputs, train=train)
-    x = backbone_features['stage4']['unit03']
+    x = backbone_features['pre_logits_2d']
     bs, h, w, _ = x.shape
 
     if padding_mask is None:
