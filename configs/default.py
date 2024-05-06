@@ -12,6 +12,7 @@ def get_config():
   config.dataset_configs.name = 'coco/2017'
   config.dataset_configs.max_size = 640
   config.dataset_configs.max_boxes = 100
+  config.dataset_configs.input_range = (-1, 1)
 
   # Model config
   config.model_dtype_str = 'float32'
@@ -37,7 +38,7 @@ def get_config():
   config.giou_loss_coef = 2.0
 
   # Training
-  config.batch_size = 16
+  config.batch_size = 64
   config.total_epochs = 300
 
   # Optimizer
@@ -56,12 +57,13 @@ def get_config():
   config.load_pretrained_backbone = True
   config.freeze_backbone_batch_stats = True
   config.pretrained_backbone_configs = ml_collections.ConfigDict()
-  config.pretrained_backbone_configs.checkpoint_path = '/mnt/nfs_share/orion-jax/artifacts/bit50'
+  config.pretrained_backbone_configs.checkpoint_path = '/home/karan/workspace/orion-jax/artifacts/bit_i1k'
 
   # Annotations
-  config.annotations_loc = '/mnt/nfs_share/scenic/scenic/dataset_lib/coco_dataset/data/instances_val2017.json'
+  config.annotations_loc = './instances_val2017.json'
 
   # Logging/checkpointing
   config.checkpoint = True
-
+  config.log_summary_steps = 100
+  config.log_eval_steps = 500
   return config
