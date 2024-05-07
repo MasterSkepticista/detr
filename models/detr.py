@@ -320,16 +320,18 @@ class EncoderBlock(nn.Module):
 
     mlp = MlpBlock(
         mlp_dim=self.mlp_dim,
-        dropout_rate=self.dropout_rate,
         activation_fn=nn.relu,
-        dtype=self.dtype)
+        dtype=self.dtype,
+        dropout_rate=self.dropout_rate)
+
     assert inputs.ndim == 3
+
     if self.pre_norm:
       x = nn.LayerNorm(dtype=self.dtype)(inputs)
       x = self_attn(
           inputs_q=x,
-          pos_emb_k=pos_embedding,
           pos_emb_q=pos_embedding,
+          pos_emb_k=pos_embedding,
           pos_emb_v=None,
           key_padding_mask=padding_mask,
           train=train)
@@ -341,8 +343,8 @@ class EncoderBlock(nn.Module):
     else:
       x = self_attn(
           inputs_q=inputs,
-          pos_emb_k=pos_embedding,
           pos_emb_q=pos_embedding,
+          pos_emb_k=pos_embedding,
           pos_emb_v=None,
           key_padding_mask=padding_mask,
           train=train)
@@ -407,8 +409,8 @@ class DecoderBlock(nn.Module):
     self_attn = MultiHeadDotProductAttention(
         num_heads=self.num_heads,
         qkv_features=self.qkv_dim,
-        dropout_rate=self.attention_dropout_rate,
         broadcast_dropout=False,
+        dropout_rate=self.attention_dropout_rate,
         kernel_init=nn.initializers.xavier_uniform(),
         bias_init=nn.initializers.zeros,
         use_bias=True,
@@ -417,8 +419,8 @@ class DecoderBlock(nn.Module):
     cross_attn = MultiHeadDotProductAttention(
         num_heads=self.num_heads,
         qkv_features=self.qkv_dim,
-        dropout_rate=self.attention_dropout_rate,
         broadcast_dropout=False,
+        dropout_rate=self.attention_dropout_rate,
         kernel_init=nn.initializers.xavier_uniform(),
         bias_init=nn.initializers.zeros,
         use_bias=True,
@@ -426,9 +428,9 @@ class DecoderBlock(nn.Module):
 
     mlp = MlpBlock(
         mlp_dim=self.mlp_dim,
-        dropout_rate=self.dropout_rate,
         activation_fn=nn.relu,
-        dtype=self.dtype)
+        dtype=self.dtype,
+        dropout_rate=self.dropout_rate)
 
     assert obj_queries.ndim == 3
     if self.pre_norm:
@@ -510,9 +512,9 @@ class Encoder(nn.Module):
     x = inputs
     for lyr in range(self.num_layers):
       x = EncoderBlock(
-          num_heads=self.num_heads,
           qkv_dim=self.qkv_dim,
           mlp_dim=self.mlp_dim,
+          num_heads=self.num_heads,
           pre_norm=self.normalize_before,
           dropout_rate=self.dropout_rate,
           attention_dropout_rate=self.attention_dropout_rate,
@@ -522,14 +524,27 @@ class Encoder(nn.Module):
               pos_embedding=pos_embedding,
               padding_mask=padding_mask,
               train=train)
+
     if self.norm is not None:
       x = self.norm(x)
-
     return x
 
 
 class Decoder(nn.Module):
-  """Applies multiple decoder blocks sequentially."""
+  """Applies multiple decoder blocks sequentially.
+  
+  Attributes:
+    num_heads: Number of heads.
+    num_layers: Number of layers.
+    qkv_dim: Dimension of the query/key/value.
+    mlp_dim: Dimension of the mlp on top of attention block.
+    normalize_before: If use LayerNorm before attention/mlp blocks.
+    norm: Flax module to use for normalization.
+    return_intermediate: If return the outputs from intermediate layers.
+    dropout_rate: Dropout rate.
+    attention_dropout_rate: Dropout rate for attention weights.
+    dtype: Data type of the computation (default: float32).
+  """
   num_heads: int
   num_layers: int
   qkv_dim: int
@@ -556,14 +571,14 @@ class Decoder(nn.Module):
     outputs = []
     for lyr in range(self.num_layers):
       y = DecoderBlock(
-          num_heads=self.num_heads,
           qkv_dim=self.qkv_dim,
           mlp_dim=self.mlp_dim,
+          num_heads=self.num_heads,
           pre_norm=self.normalize_before,
           dropout_rate=self.dropout_rate,
           attention_dropout_rate=self.attention_dropout_rate,
-          name=f'decoderblock_{lyr}',
-          dtype=self.dtype)(
+          dtype=self.dtype,
+          name=f'decoderblock_{lyr}')(
               y,
               encoder_output,
               pos_embedding=pos_embedding,
@@ -667,22 +682,6 @@ class DETRTransformer(nn.Module):
     return decoder_output, encoder_output
 
 
-class ObjectClassPredictor(nn.Module):
-  """Linear Projection block for prediction classes."""
-  num_classes: int
-  dtype: jnp.dtype = jnp.float32
-
-  @nn.compact
-  def __call__(self, inputs: jnp.ndarray) -> jnp.ndarray:
-    bias_range = 1. / np.sqrt(inputs.shape[-1])
-    return nn.Dense(
-        self.num_classes,
-        kernel_init=pytorch_kernel_init(dtype=self.dtype),
-        bias_init=uniform_initializer(-bias_range, bias_range, self.dtype),
-        dtype=self.dtype)(
-            inputs)
-
-
 class BBoxCoordPredictor(nn.Module):
   """FFN block for predicting bounding box coordinates."""
   mlp_dim: int
@@ -713,6 +712,30 @@ class BBoxCoordPredictor(nn.Module):
             x)
     output = nn.sigmoid(x)
     return output
+
+
+class ObjectClassPredictor(nn.Module):
+  """Linear Projection block for prediction classes."""
+  num_classes: int
+  dtype: jnp.dtype = jnp.float32
+
+  @nn.compact
+  def __call__(self, inputs: jnp.ndarray) -> jnp.ndarray:
+    """Applies Linear Projection to inputs.
+    
+    Args:
+      inputs: Input data.
+
+    Returns:
+      Output of Linear Projection block.
+    """
+    bias_range = 1. / np.sqrt(inputs.shape[-1])
+    return nn.Dense(
+        self.num_classes,
+        kernel_init=pytorch_kernel_init(dtype=self.dtype),
+        bias_init=uniform_initializer(-bias_range, bias_range, self.dtype),
+        dtype=self.dtype)(
+            inputs)
 
 
 class DETR(nn.Module):
@@ -829,8 +852,7 @@ class DETR(nn.Module):
         padding_mask=jnp.reshape(padding_mask_downsampled, (bs, h * w)),
         pos_embedding=pos_emb,
         query_pos_emb=query_pos_emb,
-        train=train,
-    )
+        train=train)
 
     def output_projection(model_output):
       # classification head
@@ -853,7 +875,7 @@ class DETR(nn.Module):
         'transformer_input': transformer_input,
         'backbone_features': backbone_features,
         'encoder_output': encoder_output,
-        'decoder_output': decoder_output,
+        'decoder_output': decoder_output[-1],
         'padding_mask': padding_mask_downsampled,
     }
     if self.aux_loss:

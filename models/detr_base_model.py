@@ -299,7 +299,7 @@ class BaseModelWithMatching(base_model.BaseModel):
         not_padded = not_padded * jnp.expand_dims(batch_weights, axis=1)
       num_correct_no_pad = model_utils.weighted_correctly_classified(
           src_log_p[..., 1:], tgt_labels_onehot[..., 1:], weights=not_padded)
-      metrics['class_accuracy_no_pad'] = (num_correct_no_pad, not_padded.sum())
+      metrics['class_accuracy_not_pad'] = (num_correct_no_pad, not_padded.sum())
 
       if not self.config.get('sigmoid_loss', False):
         num_correct = model_utils.weighted_correctly_classified(
@@ -660,8 +660,8 @@ class ObjectDetectionWithMatchingModel(BaseModelWithMatching):
     if norm_type != 'per_example':
       # Normalize by the number of boxes in batch.
       denom = jnp.maximum(jax.lax.pmean(denom.sum(), axis_name='batch'), 1)
-      normalized_loss_giou = unnormalized_loss_giou.sum() / denom
       normalized_loss_bbox = unnormalized_loss_bbox.sum() / denom
+      normalized_loss_giou = unnormalized_loss_giou.sum() / denom
     else:
       # Normalize by number of boxes in image.
       denom = jnp.maximum(denom, 1.)
