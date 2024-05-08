@@ -82,6 +82,15 @@ def get_train_step(apply_fn: Callable, loss_and_metrics_fn: Callable,
         opt_state=new_opt_state,
         model_state=new_model_state,
         rng=new_rng)
+
+    # Measurements
+    gs = jax.tree.leaves(grads)
+    metrics['l2_grads'] = (jnp.sqrt(sum([jnp.vdot(g, g) for g in gs])), 1)
+    ps = jax.tree.leaves(new_params)
+    metrics['l2_params'] = (jnp.sqrt(sum([jnp.vdot(p, p) for p in ps])), 1)
+    us = jax.tree.leaves(updates)
+    metrics['l2_updates'] = (jnp.sqrt(sum([jnp.vdot(u, u) for u in us])), 1)
+
     return train_state, metrics, predictions
 
   return train_step

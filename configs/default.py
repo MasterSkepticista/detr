@@ -10,7 +10,7 @@ def get_config():
   # Dataset config
   config.dataset_configs = ml_collections.ConfigDict()
   config.dataset_configs.name = 'coco/2017'
-  config.dataset_configs.max_size = 640
+  config.dataset_configs.max_size = 1333
   config.dataset_configs.max_boxes = 100
   config.dataset_configs.input_range = (-1., 1.)
 
@@ -46,7 +46,7 @@ def get_config():
   config.optax_name = 'scale_by_adam'
   config.optax = dict(b1=0.9, b2=0.999, mu_dtype='bfloat16')
   config.lr = 1e-4
-  config.wd = 1e-4  # Weight decay is decoupled.
+  config.wd = 1e-5  # Weight decay is decoupled.
   config.schedule = dict(decay_type='cosine')
   config.lr_mults = [
       ('backbone.*', 0.1),  # Backbone lr
