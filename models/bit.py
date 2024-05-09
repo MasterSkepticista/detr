@@ -1,6 +1,5 @@
 """BiT ResNet models as in the paper: https://arxiv.org/pdf/1912.11370.pdf"""
 import functools
-from re import S
 from typing import Optional, Sequence, Union
 
 import flax.linen as nn
