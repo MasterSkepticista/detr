@@ -479,6 +479,7 @@ class BaseModelWithMatching(base_model.BaseModel):
     # them below.
     if aux_matches:
       for i, aux_outputs in enumerate(outputs['aux_outputs']):
+        indices = aux_matches[i]
         # Computes all the losses for this auxiliary output except class_error
         for loss in self.losses_and_metrics:
           # Disable class error for loss on labels.
