@@ -813,7 +813,7 @@ class DETR(nn.Module):
       padding_mask_downsampled = jnp.ones((bs, h, w), dtype=jnp.bool_)
     else:
       padding_mask_downsampled = jax.image.resize(
-          padding_mask.astype(jnp.float32), shape=(bs, h, w),
+          padding_mask.astype(jnp.float32), shape=[bs, h, w],
           method='nearest').astype(jnp.bool_)
 
     pos_emb = InputPosEmbeddingSine(hidden_dim=self.hidden_dim)(
@@ -849,7 +849,7 @@ class DETR(nn.Module):
         name='transformer')
     decoder_output, encoder_output = transformer(
         transformer_input,
-        padding_mask=jnp.reshape(padding_mask_downsampled, (bs, h * w)),
+        padding_mask=jnp.reshape(padding_mask_downsampled, [bs, h * w]),
         pos_embedding=pos_emb,
         query_pos_emb=query_pos_emb,
         train=train)
