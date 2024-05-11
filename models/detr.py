@@ -57,7 +57,7 @@ class InputPosEmbeddingSine(nn.Module):
 
     # Normalization
     eps = 1e-6
-    scale = 2 * jnp.pi
+    scale = self.scale if self.scale is not None else 2 * jnp.pi
     y_embed = y_embed / (y_embed[:, -1:, :] + eps) * scale
     x_embed = x_embed / (x_embed[:, :, -1:] + eps) * scale
 
