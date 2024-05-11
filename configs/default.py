@@ -1,6 +1,8 @@
 """Training config for DETR on MS-Coco dataset."""
 import ml_collections
 
+COCO_TRAIN_SIZE = 118_287
+
 
 def get_config():
   config = ml_collections.ConfigDict()
@@ -10,7 +12,7 @@ def get_config():
   # Dataset config
   config.dataset_configs = ml_collections.ConfigDict()
   config.dataset_configs.name = 'coco/2017'
-  config.dataset_configs.max_size = 1333
+  config.dataset_configs.max_size = 640
   config.dataset_configs.max_boxes = 100
   config.dataset_configs.input_range = (-1., 1.)
 
@@ -36,6 +38,7 @@ def get_config():
   config.class_loss_coef = 1.0
   config.bbox_loss_coef = 5.0
   config.giou_loss_coef = 2.0
+  config.eos_coef = 0.1
 
   # Training
   config.batch_size = 64
@@ -46,8 +49,11 @@ def get_config():
   config.optax_name = 'scale_by_adam'
   config.optax = dict(b1=0.9, b2=0.999, mu_dtype='bfloat16')
   config.lr = 1e-4
-  config.wd = 1e-5  # Weight decay is decoupled.
-  config.schedule = dict(decay_type='cosine')
+  config.wd = 1e-4  # Weight decay is decoupled and applied before LR scaling.
+  config.schedule = [
+      ('^(?!.*bn).*', dict(decay_type='cosine')),
+      ('.*bn.*', None),
+  ]
   config.lr_mults = [
       ('backbone.*', 0.1),  # Backbone lr
       ('(?!.*backbone).*', 1.0),  # Everything other than backbone
@@ -57,13 +63,15 @@ def get_config():
   config.load_pretrained_backbone = True
   config.freeze_backbone_batch_stats = True
   config.pretrained_backbone_configs = ml_collections.ConfigDict()
-  config.pretrained_backbone_configs.checkpoint_path = '/home/karan/workspace/orion-jax/artifacts/bit_i1k'
+  config.pretrained_backbone_configs.checkpoint_path = '/home/karan/workspace/orion-jax/artifacts/r50_i1k'
 
   # Annotations
   config.annotations_loc = './instances_val2017.json'
 
   # Logging/checkpointing
+  steps_per_epoch = COCO_TRAIN_SIZE // config.batch_size
   config.checkpoint = True
-  config.log_summary_steps = 100
-  config.log_eval_steps = 500
+  config.xprof = False
+  config.log_summary_steps = 200
+  config.log_eval_steps = steps_per_epoch
   return config

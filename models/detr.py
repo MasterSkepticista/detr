@@ -13,7 +13,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from model_lib.layers import attention_layers
-from models import bit, detr_base_model
+from models import bit, resnet, detr_base_model
 
 pytorch_kernel_init = functools.partial(nn.initializers.variance_scaling,
                                         1. / 3., 'fan_in', 'uniform')
@@ -799,14 +799,16 @@ class DETR(nn.Module):
     """
     assert self.transformer_qkv_dim == self.hidden_dim
 
-    del update_batch_stats  # Not required for BiT
-    _, backbone_features = bit.ResNet(
+    if update_batch_stats is None:
+      update_batch_stats = train
+      
+    _, backbone_features = resnet.ResNet(
         width=self.backbone_width,
         depth=self.backbone_depth,
         dtype=self.dtype,
         name='backbone')(
-            inputs, train=train)
-    x = backbone_features['pre_logits_2d']
+            inputs, train=update_batch_stats)
+    x = backbone_features['stage_4']
     bs, h, w, _ = x.shape
 
     if padding_mask is None:
