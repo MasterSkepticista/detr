@@ -97,8 +97,8 @@ def make(config: ml_collections.ConfigDict, params: PyTree, *, sched_kw: dict):
   return optax.chain(
       grad_clip_norm_tx,
       *opt_txs,
-      *lr_mult_txs,
       *weight_decay_txs,
+      *lr_mult_txs,
       *schedule_txs,
       optax.scale(-1.0),
   ), schedule_fns
