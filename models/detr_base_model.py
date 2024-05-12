@@ -181,7 +181,15 @@ class BaseModelWithMatching(base_model.BaseModel):
     if matcher_name == 'lazy':
       matcher_fn = matchers.lazy_matcher
     elif matcher_name == 'sinkhorn':
-      raise NotImplementedError
+      matcher_fn = functools.partial(
+          matchers.sinkhorn_matcher,
+          epsilon=self.config.get('sinkhorn_epsilon', 0.001),
+          init=self.config.get('sinkhorn_init', 50),
+          decay=self.config.get('sinkhorn_decay', 0.9),
+          num_iters=self.config.get('sinkhorn_num_iters', 1000),
+          threshold=self.config.get('sinkhorn_threshold', 1e-2),
+          chg_momentum_from=self.config.get('sinkhorn_chg_momentum_from', 100),
+          num_permutations=self.config.get('sinkhorn_num_permutations', 100))
     elif matcher_name == 'greedy':
       matcher_fn = matchers.greedy_matcher
     elif matcher_name == 'hungarian':
