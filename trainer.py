@@ -284,7 +284,6 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
       global_metrics_evaluator.clear()
 
     for eval_step in range(steps_per_eval):
-      logging.info('Running eval step %d', eval_step)
       eval_batch = next(dataset.valid_iter)
 
       # Do the eval step.
