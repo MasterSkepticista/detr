@@ -9,7 +9,7 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 from flax import jax_utils
 
-import dataset_utils
+from dataset_lib import dataset_utils
 import transforms
 
 # Values from ImageNet (as used by backbone)

@@ -16,7 +16,7 @@ from flax import jax_utils, struct
 from flax.training import checkpoints
 from tensorflow.io import gfile
 
-import dataset_utils
+from dataset_lib import dataset_utils
 import input_pipeline
 from common_lib import debug_utils, tree_utils
 

@@ -17,10 +17,10 @@ from flax.training.checkpoints import \
     restore_checkpoint as flax_restore_checkpoint
 
 import bv_optax
-import dataset_utils
 import detr_train_utils
 import utils as u
 from models import detr
+from dataset_lib import dataset_utils
 from train_lib import pretrain_utils, train_utils
 
 
