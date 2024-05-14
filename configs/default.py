@@ -44,20 +44,14 @@ def get_config():
   config.batch_size = 64
   config.total_epochs = 300
 
-  # Optimizer
-  config.grad_clip_norm = 0.1
-  config.optax_name = 'scale_by_adam'
-  config.optax = dict(b1=0.9, b2=0.999, mu_dtype='bfloat16')
-  config.lr = 1e-4
-  config.wd = 1e-4  # Weight decay is decoupled and applied before LR scaling.
-  config.schedule = [
-      ('^(?!.*bn).*', dict(decay_type='cosine')),
-      ('.*bn.*', None),
-  ]
-  config.lr_mults = [
-      ('backbone.*', 0.1),  # Backbone lr
-      ('(?!.*backbone).*', 1.0),  # Everything other than backbone
-  ]
+  # Optimizer (AdamW)
+  config.optimizer_configs = ml_collections.ConfigDict()
+  config.optimizer_configs.grad_clip_norm = 0.1
+  config.optimizer_configs.base_lr = 1e-4
+  config.optimizer_configs.backbone_lr_reduction = 0.1
+  config.optimizer_configs.schedule = dict(decay_type='cosine')
+  config.optimizer_configs.optax_kw = dict(
+    b1=0.9, b2=0.999, weight_decay=1e-4, mu_dtype='bfloat16')
 
   # Pretrained checkpoints
   config.load_pretrained_backbone = True

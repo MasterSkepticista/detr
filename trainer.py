@@ -2,7 +2,7 @@
 import functools
 import time
 from concurrent import futures
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Tuple
 
 import flax
 import jax
@@ -16,7 +16,6 @@ from flax import jax_utils
 from flax.training.checkpoints import \
     restore_checkpoint as flax_restore_checkpoint
 
-import bv_optax
 import detr_train_utils
 import utils as u
 from models import detr
@@ -160,6 +159,55 @@ def get_eval_step(flax_model,
   return eval_step
 
 
+def make_optimizer(
+    config: ml_collections.ConfigDict, params, *, sched_kw: dict
+) -> Tuple[optax.GradientTransformation, Callable[..., float]]:
+  """Makes an Optax optimizer for DETR."""
+  oc = config.optimizer_configs
+
+  def bn_and_freeze_batch_stats(path):
+    # For DETR we need to skip the BN affine transforms as well.
+    if not config.freeze_backbone_batch_stats:
+      return False
+    names = ['/bn1/', '/bn2/', '/bn3/', '/init_bn/', '/proj_bn/']
+    for s in names:
+      if s in path:
+        return True
+    return False
+
+  backbone_traversal = flax.traverse_util.ModelParamTraversal(
+      lambda path, _: 'backbone' in path)
+  bn_traversal = flax.traverse_util.ModelParamTraversal(
+      lambda path, _: bn_and_freeze_batch_stats(path))
+
+  all_false = jax.tree_util.tree_map(lambda _: False, params)
+
+  def get_mask(traversal: flax.traverse_util.ModelParamTraversal):
+    return traversal.update(lambda _: True, all_false)
+
+  # Masks
+  bn_mask = get_mask(bn_traversal)
+  backbone_mask = get_mask(backbone_traversal)
+  weight_decay_mask = jax.tree_map(lambda p: p.ndim != 1, params)
+
+  # LR Schedule
+  sched_fn = u.create_learning_rate_schedule(
+      **sched_kw, **oc.schedule, base=oc.base_lr)
+
+  # Optimizer
+  tx = optax.chain(
+      optax.clip_by_global_norm(oc.grad_clip_norm),
+      optax.adamw(
+          learning_rate=sched_fn,
+          mask=weight_decay_mask,
+          **oc.optax_kw,
+      ),
+      optax.masked(optax.scale(oc.backbone_lr_reduction), backbone_mask),
+      optax.masked(optax.scale(0), bn_mask),
+  )
+  return tx, sched_fn
+
+
 def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
                        config: ml_collections.ConfigDict, workdir: str,
                        writer: metric_writers.MetricWriter):
@@ -191,7 +239,7 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
        rngs=init_rng)
 
   # Create optimizer.
-  tx, sched_fns = bv_optax.make(
+  tx, sched_fn = make_optimizer(
       config,
       params,
       sched_kw=dict(
@@ -199,7 +247,7 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
           batch_size=config.batch_size,
           data_size=ntrain_img))
   opt_state = jax.jit(tx.init, backend='cpu')(params)
-  sched_fns_cpu = [jax.jit(sched_fn, backend='cpu') for sched_fn in sched_fns]
+  sched_fn_cpu = jax.jit(sched_fn, backend='cpu')
 
   # Build TrainState
   rng, train_rng = jax.random.split(rng)
@@ -344,7 +392,7 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
     global_metrics_evaluator = detr_train_utils.DetrGlobalEvaluator(
         config.dataset_configs.name, annotations_loc=config.annotations_loc)
 
-  train_metrics = []
+  train_metrics, extra_training_logs = [], []
   train_summary, eval_summary = None, None
 
   info('Starting training loop at step %d.', start_step + 1)
@@ -375,8 +423,7 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
       # Accumulate metrics (do not use for large metrics like segmentation maps).
       train_metrics.append(train_utils.unreplicate_and_get(t_metrics))
 
-    for h in hooks:
-      h(step)
+    [h(step) for h in hooks]
 
     if (log_large_summary_steps and step % log_large_summary_steps == 0 and
         lead_host):
@@ -386,15 +433,11 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
     if (step % log_summary_steps == 0) or (step == total_steps - 1):
       ########## LOG TRAIN SUMMARY #########
-      sched_logs = [{
-          f"global_schedule{i if i else ''}": sched_fn(step - 1)
-          for i, sched_fn in enumerate(sched_fns_cpu)
-      }]
       train_summary = train_utils.log_train_summary(
           step,
           writer=writer,
           train_metrics=train_metrics,
-          extra_training_logs=sched_logs,
+          extra_training_logs=[{"global_schedule": sched_fn_cpu(step - 1)}],
           metrics_normalizer_fn=metrics_normalizer_fn)
       # Reset for next round.
       train_metrics = []
