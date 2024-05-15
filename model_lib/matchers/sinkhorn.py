@@ -59,7 +59,7 @@ def sample_permutation(key, coupling):
 
   # Random monotonic vector v without duplicates.
   v = jax.random.choice(key, bs * dim, shape=(bs, dim), replace=False)
-  v = jnp.sort(v, axis=-1) * bs
+  v = jnp.sort(v, axis=-1) * 10
 
   w = jnp.einsum('bnm,bm->bn', coupling, v)
   # Sorting w will give the row indices of the permutation matrix.
