@@ -72,7 +72,7 @@ def get_config():
   config.load_pretrained_backbone = True
   config.freeze_backbone_batch_stats = True
   config.pretrained_backbone_configs = ml_collections.ConfigDict()
-  config.pretrained_backbone_configs.checkpoint_path = '/home/karan/workspace/orion-jax/artifacts/r50_i1k'
+  config.pretrained_backbone_configs.checkpoint_path = 'path_to_checkpoint'
 
   # Annotations
   config.annotations_loc = './instances_val2017.json'
