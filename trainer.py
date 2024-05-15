@@ -427,8 +427,20 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
     if (log_large_summary_steps and step % log_large_summary_steps == 0 and
         lead_host):
       ################# LOG EXPENSIVE TRAIN SUMMARY ################
-      # TODO: Visualizes detections using side-by-side gt-pred images.
-      pass
+      # Visualize detections side-by-side using gt-pred images.
+      to_cpu = lambda x: jax.device_get(dataset_utils.unshard(x))
+      del train_batch['batch_mask']
+      train_pred_cpu = to_cpu(train_predictions)
+      train_batch_cpu = to_cpu(train_batch)
+      viz = detr_train_utils.draw_boxes_side_by_side(
+          train_pred_cpu,
+          train_batch_cpu,
+          label_map=dataset.meta_data['label_to_name'])
+      writer.write_images(step, {
+          f'sidebyside_{i}/detection': viz_[None, ...]
+          for i, viz_ in enumerate(viz)
+      })
+      del train_predictions
 
     if (step % log_summary_steps == 0) or (step == total_steps - 1):
       ########## LOG TRAIN SUMMARY #########

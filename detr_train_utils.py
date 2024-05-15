@@ -4,6 +4,7 @@ import json
 import os
 from typing import Any, Dict, Optional, Set
 
+import PIL
 import jax
 import numpy as np
 import scipy.special
@@ -154,6 +155,65 @@ def normalize_metrics_summary(metrics_summary, split,
 
   return metrics_summary
 
+
+def draw_boxes_side_by_side(pred: Dict[str, Any], batch: Dict[str, Any],
+                            label_map: Dict[int, str]) -> np.ndarray:
+  """Side-by-side visualization of detection predictions and ground truth."""
+  viz = []
+
+  # Unnormalize images [-1, 1] -> [0, 255].
+  imgs = tf.image.convert_image_dtype(batch['inputs'] / 2. + 0.5, tf.uint8)
+
+  font = PIL.ImageFont.load_default()
+
+  # Iterates over images in the batch and makes visualizations.
+  for idx in range(imgs.shape[0]):
+    h, w = batch['label']['size'][idx]
+    gt_im = PIL.Image.fromarray(imgs[idx])
+    gt_draw = PIL.ImageDraw.Draw(gt_im)
+    for bb, cls, is_crowd in zip(batch['label']['boxes'][idx],
+                                 batch['label']['labels'][idx],
+                                 batch['label']['is_crowd'][idx]):
+      if cls == 0:
+        continue  # Dummy object
+
+      bcx, bcy, bw, bh = bb * [w, h, w, h]  # unnormalize.
+      bb = [bcx - bw / 2, bcy - bh / 2, bcx + bw / 2, bcy + bh / 2]
+      edgecolor = (255, 0, 0) if is_crowd else (255, 255, 0)
+      gt_draw.rectangle(bb, fill=None, outline=edgecolor, width=3)
+      gt_draw.text([bb[0], max(bb[1] - 10, 0)],
+                   label_map[cls],
+                   font=font,
+                   fill=(0, 0, 255))
+
+    # For model predictions.
+    pred_im = PIL.Image.fromarray(imgs[idx])
+    pred_draw = PIL.ImageDraw.Draw(pred_im)
+    pred_lbls = np.argmax(pred['pred_logits'], axis=-1)
+    for bb, cls in zip(pred['pred_boxes'][idx], pred_lbls[idx]):
+      h, w = batch['label']['size'][idx]
+      bcx, bcy, bw, bh = bb * [w, h, w, h]  # unnormalize.
+      bb = [bcx - bw / 2, bcy - bh / 2, bcx + bw / 2, bcy + bh / 2]
+      edgecolor = (0, 255, 0) if cls else (0, 150, 0)
+      pred_draw.rectangle(
+          bb, fill=None, outline=edgecolor, width=3 if cls else 1)
+
+    # Separate loop for text to prevent occlusion of text by boxes.
+    for bb, cls in zip(pred['pred_boxes'][idx], pred_lbls[idx]):
+      if not cls:
+        continue
+      h, w = batch['label']['size'][idx]
+      bcx, bcy, bw, bh = bb * [w, h, w, h]
+      bb = [bcx - bw / 2, bcy - bh / 2, bcx + bw / 2, bcy + bh / 2]
+      pred_draw.text([bb[0], max(bb[1] - 10, 0)],
+                     label_map[cls],
+                     font=font,
+                     fill=(0, 0, 255))
+    gt_im_np = np.asarray(gt_im)
+    pred_im_np = np.asarray(pred_im)
+    composite = np.concatenate([pred_im_np, gt_im_np], axis=1)
+    viz.append(composite)
+  return np.stack(viz, axis=0)
 
 def process_and_fetch_to_host(pred_or_tgt, batch_mask):
   """Used to collect predictions and targets of the whole valid/test set.
