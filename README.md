@@ -1,10 +1,8 @@
-## End-to-End Object Detection using Transformers, in `jax`.
+# DETR: End-to-End Object Detection with Transformers.
 
-This is a minimal implementation of DETR in `jax`, borrowing most details from 
-[google-research/scenic](https://github.com/google-research/scenic/) and 
-[google-research/big_vision](https://github.com/google-research/big_vision/).
+This is a minimal implementation of [DETR](https://arxiv.org/abs/2005.12872) in `jax`.
 
-What differs:
+What differs here, from the implementation in [scenic](https://github.com/google-research/scenic/):
 * Supports Sinkhorn solver based on latest OTT package (at the time of writing).
 * Supports BigTransfer (BiT-S) ResNet-50 backbone.
 
@@ -44,3 +42,7 @@ _I will add full model checkpoints soon._
 $> python main.py \
    --config configs/sinkhorn.py --workdir artifacts/`date '+%m-%d_%H%M'`
 ```
+
+### Acknowledgements
+Large parts of this codebase were motivated by implementations in [scenic](https://github.com/google-research/scenic/) and 
+[big_vision](https://github.com/google-research/big_vision/).
