@@ -810,7 +810,9 @@ class DETR(nn.Module):
     ], (f'Unsupported backbone module `{self.backbone_module}`')
 
     representation = {'bit': 'pre_logits_2d', 'resnet': 'stage_4'}
-    _, backbone_features = getattr(self.backbone_module, 'ResNet')(
+
+    # TODO: Remove hardcode of bit.ResNet
+    _, backbone_features = bit.ResNet(
         width=self.backbone_width,
         depth=self.backbone_depth,
         dtype=self.dtype,
