@@ -1,6 +1,8 @@
 """Common train utils."""
+import copy
 import functools
 import os
+import time
 from typing import (Any, Callable, Dict, List, Mapping, Optional, Sequence,
                     Tuple, Union)
 
@@ -503,3 +505,153 @@ def log_eval_summary(
     writer.flush()
 
   return eval_metrics_summary
+
+
+class Chrono:
+  """Measures time and reports progress.
+  
+  This is a modified fork of Chrono class from big_vision codebase:
+  https://github.com/google-research/big_vision/blob/main/big_vision/utils.py
+
+  Some concepts:
+  1. This differentiates between three "types" of time:
+    - training time: the time spend on forward/backward passes.
+    - program time: overall time the program runs, including all overheads
+    - pause time: the chronometer can be paused (e.g. during evals).
+  2. This handles a "warmup": the first step is skipped for training time
+      purposes, as it includes significant compilation overheads, which distort
+      estimates.
+  3. `accumulates` (i.e. integrates) timings, and saves/loads them across
+      restarts.
+  """
+
+  def __init__(self, example_type: str = 'img', warmup: int = 2):
+    self.program_start_time = time.monotonic()
+    self.train_start_time = None
+    self.train_start_step = None  # When we started timing (after warmup)
+
+    self.prev_time = None
+    self.prev_step = None
+
+    self.pause_start = None
+    self.paused_time = 0
+
+    self.warmup = warmup  # How many calls to `tick` to skip.
+    self.load()  # Inits accum integrators.
+    self.example_type = example_type
+
+  def inform(self, first_step: int, total_steps: int, global_bs: int,
+             steps_per_epoch: int):
+    """Provide some extra info that's only known later in the program."""
+    self.prev_step = copy.deepcopy(first_step)
+    self.first_step = copy.deepcopy(first_step)
+    self.total_steps = total_steps
+    self.steps_per_epoch = steps_per_epoch
+    self.global_bs = global_bs
+    if total_steps:
+      self.note = (
+        f'Steps: {first_step}/{total_steps} [{first_step/total_steps:.1%}]'
+      )
+
+  def tick(self, step: int, writer: metric_writers.MetricWriter, write_note: Callable[[str], None]):
+    """A chronometer tick."""
+    summary = {}
+
+    def hms(s):
+      """Format time in hours/minutes/seconds."""
+      if s < 60:
+        return f'{s:.0f}s'
+      m, s = divmod(s, 60)
+      if m < 60:
+        return f'{m:.0f}m {s:.0f}s'
+      h, m = divmod(m, 60)
+      return f'{h:.0f}h {m:.0f}m'  # Seconds intentionally omitted.
+    
+    now = time.monotonic()
+    summary.update({'uptime': now - self.program_start_time})
+    # We always count examples, regardles of the timing-related warmup that 
+    # happens a few lines below.
+    ds = step - self.prev_step  # Steps between ticks.
+    self.prev_step = step
+    self.accum_examples_seen += ds * self.global_bs
+    summary.update({'examples_seen': self.accum_examples_seen})
+    if self.steps_per_epoch:
+      summary.update({'epoch': step / self.steps_per_epoch})
+    
+    # We take the start as the second time `tick` is called, so we avoid 
+    # measuring the overhead of compilation and don't include it in the time
+    # estimates.
+    if self.warmup > 1:
+      self.warmup -= 1
+      write_note(self.note)  # This can help debugging.
+      return
+    if self.warmup == 1:
+      self.train_start_time = self.prev_time = now
+      self.train_start_step = step
+      self.accum_program_time += now - self.program_start_time
+      self.paused_time = 0
+      self.warmup = 0
+      write_note(self.note)  # This can help debugging.
+      return
+    
+    # Measurements with micro-timings of current training steps speed.
+    # Time between ticks (ignoring pause).
+    if self.prev_time is None:
+      raise ValueError('prev_time is None, possible warmup was skipped.')
+    dt = now - self.prev_time - self.paused_time
+    num_cores = jax.device_count()
+    summary.update({
+      f'{self.example_type}/sec/core': self.global_bs * ds / dt / num_cores,
+      f'{self.example_type}/sec': self.global_bs * ds / dt
+    })
+
+    # Accumulate (integrate) times, good for plots.
+    self.accum_train_time += dt
+    self.accum_pause_time += self.paused_time
+    self.accum_program_time += dt + self.paused_time
+
+    # Convert to, and log as core-hours.
+    core_hours = self.accum_train_time * num_cores / 60 / 60
+    summary.update({'core_hours': core_hours})
+
+    # Progress note with "global" full-program average timings.
+    # (e.g. in program-time minus warmup)
+    dt = now - self.train_start_time
+    steps_timed = step - self.train_start_step
+    steps_todo = self.total_steps - step
+    self.note = f'Steps: {step}/{self.total_steps} [{step/self.total_steps:.1%}]'
+    self.note += f'\nWalltime: {hms(self.accum_program_time)}'
+    self.note += f' ({hms(self.accum_pause_time)} Not-train)'
+    self.note += f'\nETA: {hms(dt / steps_timed * steps_todo)}'
+    self.note += (
+      f'\nTotal train time: {hms(dt / steps_timed * self.total_steps)}'
+    )
+    write_note(self.note)
+    writer.write_scalars(step, summary)
+    self.prev_time = now
+    self.paused_time = 0
+
+
+  def pause(self, wait_for=()):
+    assert self.pause_start is None, "Don't pause twice."
+    jax.block_until_ready(wait_for)
+    self.pause_start = time.monotonic()
+  
+  def resume(self):
+    assert self.pause_start is not None, "Cannot resume without pausing first."
+    self.paused_time += time.monotonic() - self.pause_start
+    self.pause_start = None
+
+  def save(self):
+    return dict(
+        accum_program_time=self.accum_program_time,
+        accum_train_time=self.accum_train_time,
+        accum_pause_time=self.accum_pause_time,
+        accum_examples_seen=self.accum_examples_seen,
+    )
+
+  def load(self, ckpt={}):  # pylint: disable=dangerous-default-value
+    self.accum_program_time = ckpt.get('accum_program_time', 0.0)
+    self.accum_train_time = ckpt.get('accum_train_time', 0.0)
+    self.accum_pause_time = ckpt.get('accum_pause_time', 0.0)
+    self.accum_examples_seen = ckpt.get('accum_examples_seen', 0)
