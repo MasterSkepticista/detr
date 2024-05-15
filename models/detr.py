@@ -753,6 +753,8 @@ class DETR(nn.Module):
     transformer_qkv_dim: Dimension of the transformer query/key/value.
     transformer_mlp_dim: Dimension of the MLP above attention block.
     transformer_normalize_before: If use LayerNorm before attention/mlp blocks.
+    backbone_module: ResNet flavor to use. 'bit' uses the ResNet variant from
+      `BigTransfer`. 'resnet' uses the original ResNet module.
     backbone_width: Backbone ResNet width (Defaults to 1).
     backbone_depth: Backbone ResNet depth as integer or sequence of block sizes (Defaults to 50).
     aux_loss: If train with auxiliary loss.
@@ -770,6 +772,7 @@ class DETR(nn.Module):
   transformer_qkv_dim: int = 512
   transformer_mlp_dim: int = 2048
   transformer_normalize_before: bool = False
+  backbone_module: str = 'bit'
   backbone_width: int = 1
   backbone_depth: Union[int, Sequence[int]] = 50
   aux_loss: bool = False
@@ -801,14 +804,19 @@ class DETR(nn.Module):
 
     if update_batch_stats is None:
       update_batch_stats = train
-      
-    _, backbone_features = resnet.ResNet(
+
+    assert self.backbone_module in [
+        'bit', 'resnet'
+    ], (f'Unsupported backbone module `{self.backbone_module}`')
+
+    representation = {'bit': 'pre_logits_2d', 'resnet': 'stage_4'}
+    _, backbone_features = getattr(self.backbone_module, 'ResNet')(
         width=self.backbone_width,
         depth=self.backbone_depth,
         dtype=self.dtype,
         name='backbone')(
             inputs, train=update_batch_stats)
-    x = backbone_features['stage_4']
+    x = backbone_features[representation[self.backbone_module]]
     bs, h, w, _ = x.shape
 
     if padding_mask is None:

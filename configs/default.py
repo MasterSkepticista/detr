@@ -28,6 +28,7 @@ def get_config():
   config.transformer_qkv_dim = 256
   config.transformer_mlp_dim = 2048
   config.transformer_normalize_before = False
+  config.backbone_module = 'bit'  # Choose from ['bit', 'resnet']
   config.backbone_width = 1
   config.backbone_depth = 50
   config.dropout_rate = 0.
