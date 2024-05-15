@@ -69,7 +69,6 @@ def get_train_step(apply_fn: Callable, loss_and_metrics_fn: Callable,
              loss_fn, has_aux=True)(
                  train_state.params)
 
-    grads = jax.tree_map(lambda g: jnp.asarray(g, jnp.bfloat16), grads)
     grads = jax.lax.pmean(grads, axis_name='batch')
 
     updates, new_opt_state = tx.update(
@@ -433,14 +432,15 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
     if (step % log_summary_steps == 0) or (step == total_steps - 1):
       ########## LOG TRAIN SUMMARY #########
+      extra_training_logs.append({"global_schedule": sched_fn_cpu(step - 1)})
       train_summary = train_utils.log_train_summary(
           step,
           writer=writer,
           train_metrics=train_metrics,
-          extra_training_logs=[{"global_schedule": sched_fn_cpu(step - 1)}],
+          extra_training_logs=extra_training_logs,
           metrics_normalizer_fn=metrics_normalizer_fn)
       # Reset for next round.
-      train_metrics = []
+      train_metrics, extra_training_logs = [], []
       ######################################
 
     if (step % log_eval_steps == 0) or (step == total_steps):
