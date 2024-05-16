@@ -2,6 +2,8 @@
 
 This is a minimal implementation of [DETR](https://arxiv.org/abs/2005.12872) in `jax`.
 
+![DETR Architecture](https://github.com/MasterSkepticista/detr/raw/main/.github/detr.png)
+
 What differs here, from the implementation in [scenic](https://github.com/google-research/scenic/):
 * Supports Sinkhorn solver based on latest OTT package (at the time of writing).
 * Supports BigTransfer (BiT-S) ResNet-50 backbone.
