@@ -51,8 +51,7 @@ def get_config():
   config.optimizer_configs.base_lr = 1e-4
   config.optimizer_configs.backbone_lr_reduction = 0.1
   config.optimizer_configs.schedule = dict(decay_type='cosine')
-  config.optimizer_configs.optax_kw = dict(
-    b1=0.9, b2=0.999, weight_decay=1e-4, mu_dtype='bfloat16')
+  config.optimizer_configs.optax_kw = dict(b1=0.9, b2=0.999, weight_decay=1e-4)
 
   # Pretrained checkpoints
   config.load_pretrained_backbone = True
@@ -67,6 +66,6 @@ def get_config():
   steps_per_epoch = COCO_TRAIN_SIZE // config.batch_size
   config.checkpoint = True
   config.xprof = False
-  config.log_summary_steps = 200
+  config.log_summary_steps = 400
   config.log_eval_steps = steps_per_epoch
   return config
