@@ -68,7 +68,8 @@ def compute_flops(flax_model_apply_fn: Callable[[jnp.ndarray], Any],
     else:
       dummy_input.append(None)
 
-  analysis = jax.jit(flax_model_apply_fn).lower(*dummy_input).cost_analysis()
+  analysis = jax.jit(
+      flax_model_apply_fn, backend='cpu').lower(*dummy_input).cost_analysis()
   flops = analysis['flops']
   if fuse_multiply_add:
     flops = flops / 2.
