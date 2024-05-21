@@ -12,7 +12,7 @@ def get_config():
   # Dataset config
   config.dataset_configs = ml_collections.ConfigDict()
   config.dataset_configs.name = 'coco/2017'
-  config.dataset_configs.max_size = 640
+  config.dataset_configs.max_size = 1333
   # Should be `config.num_queries - 1` because (i) Sinkhorn currently requires
   # square cost matrices; and (ii) an additional empty box is appended inside
   # the model.
@@ -20,7 +20,7 @@ def get_config():
   config.dataset_configs.input_range = (-1., 1.)
 
   # Model config
-  config.model_dtype_str = 'bfloat16'
+  config.model_dtype_str = 'float32'
   config.matcher = 'sinkhorn'
   config.hidden_dim = 256
   config.num_queries = 100
@@ -61,11 +61,13 @@ def get_config():
   config.total_epochs = 300
 
   # Optimizer (AdamW)
+  steps_per_epoch = COCO_TRAIN_SIZE // config.batch_size
   config.optimizer_configs = ml_collections.ConfigDict()
   config.optimizer_configs.grad_clip_norm = 0.1
   config.optimizer_configs.base_lr = 1e-4
   config.optimizer_configs.backbone_lr_reduction = 0.1
-  config.optimizer_configs.schedule = dict(decay_type='cosine')
+  config.optimizer_configs.schedule = dict(
+    decay_type='stair', steps=[40 * steps_per_epoch], mults=[0.1])
   config.optimizer_configs.optax_kw = dict(b1=0.9, b2=0.999, weight_decay=1e-4)
 
   # Pretrained checkpoints
@@ -78,7 +80,6 @@ def get_config():
   config.annotations_loc = './instances_val2017.json'
 
   # Logging/checkpointing
-  steps_per_epoch = COCO_TRAIN_SIZE // config.batch_size
   config.checkpoint = True
   config.xprof = False
   config.log_summary_steps = 400
