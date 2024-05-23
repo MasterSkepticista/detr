@@ -3,6 +3,7 @@ from typing import Optional
 
 import jax
 import jax.numpy as jnp
+import flax.linen as nn
 
 from model_lib.layers import nn_layers
 
@@ -123,3 +124,51 @@ def dot_product_attention(
   # Return weighted sum over values for each query position.
   return jnp.einsum(
       '...hqk,...khd->...qhd', attn_weights, value, precision=precision)
+
+
+def get_fixed_sincos_position_embedding(
+    x_shape: jnp.shape,
+    temperature: float = 10_000,
+    dtype: jnp.dtype = jnp.float32) -> jnp.ndarray:
+  """Provides a fixed position encoding for 2D and 3D coordinates.
+  
+  The embedding follows the initialization method used in the paper:
+  "Attention is All You Need", https://arxiv.org/abs/1706.03762
+
+  Args:
+    x_shape: the shape of the input for which a position embedding is needed.
+    temperature: Temperature parameter.
+    dtype: dtype of the position embedding.
+  Returns:
+    Matrix of PE, has shape [1, *x.shape[1:]].
+  """
+  assert len(x_shape) in (4, 5), f'Unsupported input shape: {x_shape}.'
+  num_parts = 4 if len(x_shape) == 4 else 6
+  channels = x_shape[-1]
+  assert channels % num_parts == 0, f'Channels must be multiple of {num_parts}.'
+  omega = jnp.arange(
+      channels // num_parts, dtype=jnp.float32) / (
+          channels / num_parts)
+  omega = 1. / (temperature**omega)
+
+  if len(x_shape) == 4:  # 2D Input.
+    _, h, w, _ = x_shape
+    y, x = jnp.mgrid[:h, :w]
+    y = jnp.einsum('m,d->md', y.flatten(), omega)
+    x = jnp.einsum('m,d->md', x.flatten(), omega)
+    p = [jnp.sin(x), jnp.cos(x), jnp.sin(y), jnp.cos(y)]
+    shape = (1, h, w, channels)
+  elif len(x_shape) == 5:  # 3D Input.
+    _, t, h, w, _ = x_shape
+    z, y, x = jnp.mgrid[:t, :h, :w]
+    z = jnp.einsum('m,d->md', z.flatten(), omega)
+    y = jnp.einsum('m,d->md', y.flatten(), omega)
+    x = jnp.einsum('m,d->md', x.flatten(), omega)
+    p = [jnp.sin(z), jnp.cos(z), jnp.sin(x), jnp.cos(y), jnp.sin(y), jnp.cos(y)]
+    shape = (1, t, h, w, channels)
+  else:  # Should never reach here because of assert at beginning.
+    raise ValueError(f'Unsupported inputs shape: {x_shape}')
+
+  assert (shape[0] == 1) and (shape[1:] == x_shape[1:])
+  pe = jnp.concatenate(p, axis=-1)
+  return jnp.asarray(pe, dtype).reshape(*shape)
