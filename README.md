@@ -26,11 +26,13 @@ and create TFRecords:
   (venv) $> python -c "import tensorflow_datasets as tfds; tfds.load('coco/2017')"
   ```
 
-* Download and extract `instances_val2017.json` from [MS-COCO](https://cocodataset.org/#download) in the root directory of this repo.
+* Download and extract `instances_val2017.json` from [MS-COCO](https://cocodataset.org/#download) 
+in the root directory of this repo (or update `config.annotations_loc` in the config).
 
 ### Checkpoints
 
-Set the checkpoint path in the chosen config file.
+Place these checkpoints under a new directory `artifacts` at the root of this repository.
+Alternatively, modify `config.pretrained_backbone_configs.checkpoint_path` in the chosen config file.
 
 |Backbone|Top-1 Acc.|Checkpoint|
 |--------|----------|----|
@@ -46,5 +48,5 @@ $> python main.py \
 ```
 
 ### Acknowledgements
-Large parts of this codebase were motivated by implementations in [scenic](https://github.com/google-research/scenic/) and 
+Large parts of this codebase were motivated by [scenic](https://github.com/google-research/scenic/) and 
 [big_vision](https://github.com/google-research/big_vision/).
