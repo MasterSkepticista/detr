@@ -31,8 +31,8 @@ def get_config():
   config.backbone_module = 'bit'  # Choose from ['bit', 'resnet']
   config.backbone_width = 1
   config.backbone_depth = 50
-  config.dropout_rate = 0.
-  config.attention_dropout_rate = 0.1
+  config.dropout_rate = 0.1
+  config.attention_dropout_rate = 0.
 
   # Loss
   config.aux_loss = True
