@@ -1,3 +1,8 @@
+# ----------------------------------------------------------------
+# Modified from Scenic (https://github.com/google-research/scenic)
+# Copyright 2024 The Scenic Authors.
+# ----------------------------------------------------------------
+"""Base model classes."""
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import flax.linen as nn

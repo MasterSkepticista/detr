@@ -1,3 +1,8 @@
+# ----------------------------------------------------------------
+# Modified from Scenic (https://github.com/google-research/scenic)
+# Copyright 2024 The Scenic Authors.
+# ----------------------------------------------------------------
+
 """Utils to handle dataset."""
 import dataclasses
 from typing import Any, Dict, Iterator

@@ -1,3 +1,8 @@
+# ----------------------------------------------------------------
+# Modified from Scenic DETR (https://github.com/google-research/scenic/scenic/baselines/detr)
+# Copyright 2024 The Scenic Authors.
+# ----------------------------------------------------------------
+
 """Data generators for COCO-style object detection datasets."""
 from functools import partial
 from typing import Callable, Tuple

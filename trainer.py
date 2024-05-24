@@ -1,3 +1,8 @@
+# ----------------------------------------------------------------
+# Modified from Scenic DETR (https://github.com/google-research/scenic/scenic/baselines/detr)
+# Copyright 2024 The Scenic Authors.
+# ----------------------------------------------------------------
+
 """Trainer and Evaluator for DETR."""
 import functools
 import time

@@ -1,3 +1,8 @@
+# ----------------------------------------------------------------
+# Modified from Scenic (https://github.com/google-research/scenic)
+# Copyright 2024 The Scenic Authors.
+# ----------------------------------------------------------------
+
 """Model utils."""
 import functools
 from typing import Optional, Tuple, Union

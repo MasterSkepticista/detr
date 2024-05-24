@@ -1,3 +1,8 @@
+# ----------------------------------------------------------------
+# Modified from Scenic DETR (https://github.com/google-research/scenic/scenic/baselines/detr)
+# Copyright 2024 The Scenic Authors.
+# ----------------------------------------------------------------
+
 """Implementation of the DETR Architecture.
 
 End-to-End Object Detection with Transformers: https://arxiv.org/abs/2005.12872
