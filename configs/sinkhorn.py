@@ -7,7 +7,7 @@ COCO_TRAIN_SIZE = 118_287
 def get_config():
   config = ml_collections.ConfigDict()
 
-  config.rng_seed = 0
+  config.rng_seed = 42
 
   # Dataset config
   config.dataset_configs = ml_collections.ConfigDict()
@@ -67,14 +67,14 @@ def get_config():
   config.optimizer_configs.base_lr = 1e-4
   config.optimizer_configs.backbone_lr_reduction = 0.1
   config.optimizer_configs.schedule = dict(
-    decay_type='stair', steps=[40 * steps_per_epoch], mults=[0.1])
+    decay_type='stair', steps=[200 * steps_per_epoch], mults=[0.1])
   config.optimizer_configs.optax_kw = dict(b1=0.9, b2=0.999, weight_decay=1e-4)
 
   # Pretrained checkpoints
   config.load_pretrained_backbone = True
   config.freeze_backbone_batch_stats = True
   config.pretrained_backbone_configs = ml_collections.ConfigDict()
-  config.pretrained_backbone_configs.checkpoint_path = 'path_to_checkpoint'
+  config.pretrained_backbone_configs.checkpoint_path = 'artifacts/bit_r50x1_i1k_checkpoint'
 
   # Annotations
   config.annotations_loc = './instances_val2017.json'
