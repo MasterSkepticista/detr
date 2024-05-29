@@ -169,10 +169,10 @@ def weighted_unnormalized_softmax_cross_entropy(
   Args:
     logits: Output of the model with shape [batch, ..., num_classes].
     one_hot_targets: One hot vector of shape [batch, ..., num_classes].
-    weights: None or array of shape [batch x ...] (rank of one_hot_targets - 1)
+    weights: None or array of shape [batch, ...] (rank of one_hot_targets - 1)
     label_smoothing: Scalar to use to smooth the one-hot labels.
     label_weights: Weight per label of shape [num_classes].
-    logits_normalized: If True, the logits are assumed to already be noramlized.
+    logits_normalized: If True, the logits are assumed to already be normalized.
     keep_label_dimension: If True, the class dimension of the output loss is not
       summed over.
   
