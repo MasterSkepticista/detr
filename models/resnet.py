@@ -5,8 +5,9 @@ Borrowed from google-research/scenic.
 
 import functools
 from typing import Any, Callable, Dict, Optional, Tuple, Union
-import jax.numpy as jnp
+
 import flax.linen as nn
+import jax.numpy as jnp
 
 from model_lib.layers import nn_layers
 

@@ -18,7 +18,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from model_lib.layers import attention_layers
-from models import bit, resnet, detr_base_model
+from models import bit, detr_base_model, resnet
 
 pytorch_kernel_init = functools.partial(nn.initializers.variance_scaling,
                                         1. / 3., 'fan_in', 'uniform')

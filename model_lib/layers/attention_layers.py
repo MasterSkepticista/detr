@@ -1,9 +1,9 @@
 """Common attention modules."""
 from typing import Optional
 
+import flax.linen as nn
 import jax
 import jax.numpy as jnp
-import flax.linen as nn
 
 from model_lib.layers import nn_layers
 

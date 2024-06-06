@@ -7,12 +7,12 @@
 from functools import partial
 from typing import Callable, Tuple
 
+from flax import jax_utils
 import jax
 import jax.numpy as jnp
 import ml_collections
 import tensorflow as tf
 import tensorflow_datasets as tfds
-from flax import jax_utils
 
 from dataset_lib import dataset_utils
 import transforms

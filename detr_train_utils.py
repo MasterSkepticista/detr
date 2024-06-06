@@ -9,12 +9,12 @@ import json
 import os
 from typing import Any, Dict, Optional, Set
 
-import PIL
+from absl import logging
 import jax
 import numpy as np
+import PIL
 import scipy.special
 import tensorflow as tf
-from absl import logging
 
 from dataset_lib.coco_dataset import coco_eval
 from model_lib.base_models import box_utils

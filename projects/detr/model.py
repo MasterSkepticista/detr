@@ -4,9 +4,9 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Union
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
+
 from models import resnet
-from projects.detr.transformer import (DETRTransformer, InputProj,
-                                       mask_for_shape)
+from projects.detr.transformer import DETRTransformer, InputProj, mask_for_shape
 
 ArrayDict = Dict[str, jnp.ndarray]
 MetricsDict = Dict[str, Tuple[jnp.ndarray, jnp.ndarray]]

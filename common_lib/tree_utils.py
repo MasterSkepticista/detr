@@ -3,11 +3,11 @@ import dataclasses
 import re
 from typing import Any, Callable, Generator, List, Tuple
 
+from absl import logging
 import flax
 import jax
 import jax.numpy as jnp
 import numpy as np
-from absl import logging
 
 PyTree = Any
 

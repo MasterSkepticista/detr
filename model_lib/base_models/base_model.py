@@ -5,10 +5,10 @@
 """Base model classes."""
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from absl import logging
 import flax.linen as nn
 import jax.numpy as jnp
 import ml_collections
-from absl import logging
 
 Batch = Dict[str, jnp.ndarray]
 MetricFn = Callable[[jnp.ndarray, Dict[str, jnp.ndarray]],

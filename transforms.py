@@ -4,8 +4,7 @@
 # ----------------------------------------------------------------
 
 """Transforms for object detection."""
-from typing import Any
-from typing import Dict
+from typing import Any, Dict
 
 import tensorflow as tf
 

@@ -6,21 +6,21 @@ import time
 from typing import (Any, Callable, Dict, List, Mapping, Optional, Sequence,
                     Tuple, Union)
 
+from absl import logging
+from clu import metric_writers
 import flax
+from flax import jax_utils, struct
+from flax.training import checkpoints
 import jax
 import jax.numpy as jnp
 import ml_collections
 import numpy as np
 import optax
-from absl import logging
-from clu import metric_writers
-from flax import jax_utils, struct
-from flax.training import checkpoints
 from tensorflow.io import gfile
 
+from common_lib import debug_utils, tree_utils
 from dataset_lib import dataset_utils
 import input_pipeline
-from common_lib import debug_utils, tree_utils
 
 PyTree = Any
 

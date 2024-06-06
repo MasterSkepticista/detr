@@ -20,7 +20,7 @@ builds off of the Hungarian Matching Algorithm
 Based on the original implementation by Jiquan Ngiam <jngiam@google.com>.
 """
 
-from typing import Tuple, Optional, Dict
+from typing import Dict, Optional, Tuple
 
 import jax
 import jax.numpy as jnp

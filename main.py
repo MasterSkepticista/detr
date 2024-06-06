@@ -1,12 +1,12 @@
 """Entrypoint for training DETR in JAX."""
-import jax
-import flax
 from absl import app, flags, logging
 from clu import metric_writers
+import flax
+import jax
 from ml_collections import config_flags
 
-import trainer
 from train_lib import train_utils
+import trainer
 
 logging.set_verbosity('info')
 

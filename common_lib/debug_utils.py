@@ -1,12 +1,12 @@
 """Utilities for logging, debugging or profiling."""
-import operator
 from collections import abc
+import operator
 from typing import Any, Callable, Optional, Sequence, Tuple, Union
 
-import jax
-import jax.numpy as jnp
 from absl import logging
 from clu import parameter_overview
+import jax
+import jax.numpy as jnp
 
 PyTree = Any
 

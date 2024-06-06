@@ -8,11 +8,11 @@ import abc
 import functools
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from flax.linen.module import Module as Module
 import jax
 import jax.numpy as jnp
 import ml_collections
 import numpy as np
-from flax.linen.module import Module as Module
 
 from model_lib import matchers
 from model_lib.base_models import base_model, box_utils, model_utils

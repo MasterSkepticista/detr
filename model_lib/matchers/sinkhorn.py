@@ -16,11 +16,11 @@
 """
 
 from typing import Optional
+
 import jax
 import jax.numpy as jnp
 import numpy as np
-from ott.geometry import geometry
-from ott.geometry import epsilon_scheduler
+from ott.geometry import epsilon_scheduler, geometry
 from ott.solvers import linear
 
 

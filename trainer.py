@@ -4,28 +4,28 @@
 # ----------------------------------------------------------------
 
 """Trainer and Evaluator for DETR."""
+from concurrent import futures
 import functools
 import time
-from concurrent import futures
 from typing import Any, Callable, Optional, Tuple
 
+from absl import logging
+from clu import metric_writers, periodic_actions
 import flax
+from flax import jax_utils
+from flax.training.checkpoints import \
+    restore_checkpoint as flax_restore_checkpoint
 import jax
 import jax.numpy as jnp
 import ml_collections
 import numpy as np
 import optax
-from absl import logging
-from clu import metric_writers, periodic_actions
-from flax import jax_utils
-from flax.training.checkpoints import \
-    restore_checkpoint as flax_restore_checkpoint
 
-import detr_train_utils
-import utils as u
-from models import detr
 from dataset_lib import dataset_utils
+import detr_train_utils
+from models import detr
 from train_lib import pretrain_utils, train_utils
+import utils as u
 
 
 def get_train_step(apply_fn: Callable, loss_and_metrics_fn: Callable,

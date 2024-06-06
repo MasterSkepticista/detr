@@ -3,8 +3,8 @@
 import re
 from typing import Any, List, Mapping, Optional, Union
 
-import flax
 from absl import logging
+import flax
 
 from train_lib import train_utils
 
