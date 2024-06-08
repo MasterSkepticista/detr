@@ -2,7 +2,6 @@
 # Modified from Scenic DETR (https://github.com/google-research/scenic/scenic/baselines/detr)
 # Copyright 2024 The Scenic Authors.
 # ----------------------------------------------------------------
-
 """Base class for DETR object detection with matching."""
 import abc
 import functools
@@ -648,39 +647,34 @@ class ObjectDetectionWithMatchingModel(BaseModelWithMatching):
     else:
       tgt_not_padding = targets['labels'] != 0
 
-    # tgt_not_padding has shape [bs, num_boxes].
+    # `tgt_not_padding` has shape [bs, num_boxes].
     # Align this with the model predictions using simple gather.
     tgt_not_padding = model_utils.simple_gather(tgt_not_padding, indices[:, 1])
+    num_targets = tgt_not_padding.sum(axis=1)
 
-    src_boxes_xyxy = box_utils.box_cxcywh_to_xyxy(src_boxes)
-    tgt_boxes_xyxy = box_utils.box_cxcywh_to_xyxy(tgt_boxes)
+    # GIoU Loss.
     unnormalized_loss_giou = 1 - box_utils.generalized_box_iou(
-        src_boxes_xyxy, tgt_boxes_xyxy, all_pairs=False)
-
-    # This implementation assumes tight bboxes only.
-    unnormalized_loss_bbox = model_utils.weighted_box_l1_loss(
-        src_boxes_xyxy, tgt_boxes_xyxy, weights=batch_weights).sum(axis=2)
-
-    denom = tgt_not_padding.sum(axis=1)
+        box_utils.box_cxcywh_to_xyxy(src_boxes),
+        box_utils.box_cxcywh_to_xyxy(tgt_boxes),
+        all_pairs=False)
     if batch_weights is not None:
-      denom *= batch_weights
+      num_targets *= batch_weights
       unnormalized_loss_giou = model_utils.apply_weights(
           unnormalized_loss_giou, batch_weights)
 
+    # This implementation assumes tight bboxes only. L1 loss is computed on
+    # boxes in cxcywh format, as in the original DETR.
+    unnormalized_loss_bbox = model_utils.weighted_box_l1_loss(
+        src_boxes, tgt_boxes, weights=batch_weights).sum(axis=2)
+
+    # Ignore padded boxes.
     unnormalized_loss_bbox *= tgt_not_padding
     unnormalized_loss_giou *= tgt_not_padding
 
-    norm_type = self.config.get('normalization')
-    if norm_type != 'per_example':
-      # Normalize by the number of boxes in batch.
-      denom = jnp.maximum(jax.lax.pmean(denom.sum(), axis_name='batch'), 1)
-      normalized_loss_bbox = unnormalized_loss_bbox.sum() / denom
-      normalized_loss_giou = unnormalized_loss_giou.sum() / denom
-    else:
-      # Normalize by number of boxes in image.
-      denom = jnp.maximum(denom, 1.)
-      normalized_loss_bbox = (unnormalized_loss_bbox.sum(axis=1) / denom).mean()
-      normalized_loss_giou = (unnormalized_loss_giou.sum(axis=1) / denom).mean()
+    # Normalize by the number of boxes in batch.
+    num_targets = jnp.maximum(jax.lax.pmean(num_targets.sum(), axis_name='batch'), 1)
+    normalized_loss_bbox = unnormalized_loss_bbox.sum() / num_targets
+    normalized_loss_giou = unnormalized_loss_giou.sum() / num_targets
 
     losses['loss_bbox'] = normalized_loss_bbox
     metrics['loss_bbox'] = (normalized_loss_bbox, 1.)
