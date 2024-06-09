@@ -4,6 +4,7 @@
 # ----------------------------------------------------------------
 
 """Trainer and Evaluator for DETR."""
+import os
 from concurrent import futures
 import functools
 import time
