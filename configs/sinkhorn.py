@@ -12,7 +12,8 @@ def get_config():
   # Dataset config
   config.dataset_configs = ml_collections.ConfigDict()
   config.dataset_configs.name = 'coco/2017'
-  config.dataset_configs.max_size = 1333
+  config.dataset_configs.max_size = 640
+  config.dataset_configs.shuffle_buffer_size = 10_000
   # Should be `config.num_queries - 1` because (i) Sinkhorn currently requires
   # square cost matrices; and (ii) an additional empty box is appended inside
   # the model.

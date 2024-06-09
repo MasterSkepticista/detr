@@ -13,7 +13,8 @@ def get_config():
   config.dataset_configs = ml_collections.ConfigDict()
   config.dataset_configs.name = 'coco/2017'
   config.dataset_configs.max_size = 640
-  config.dataset_configs.max_boxes = 100
+  config.dataset_configs.max_boxes = 99
+  config.dataset_configs.shuffle_buffer_size = 10_000
   config.dataset_configs.input_range = (-1., 1.)
 
   # Model config

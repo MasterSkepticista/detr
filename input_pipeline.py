@@ -125,6 +125,7 @@ def load_split_from_tfds(
     preprocess_fn: Callable,
     max_size: int,
     max_boxes: int,
+    shuffle_buffer_size: int = None,
 ) -> Tuple[tf.data.Dataset, tfds.core.DatasetInfo]:
 
   split = 'train' if train else 'validation'
@@ -155,7 +156,7 @@ def load_split_from_tfds(
   }
 
   if train:
-    ds = ds.shuffle(64 * batch_size,)
+    ds = ds.shuffle(shuffle_buffer_size)
     ds = ds.repeat()
     ds = ds.map(decode_fn, tf.data.AUTOTUNE)
     ds = ds.map(preprocess_fn, tf.data.AUTOTUNE)
@@ -179,6 +180,7 @@ def build_pipeline(*, rng, batch_size: int, eval_batch_size: int,
 
   max_size = dataset_configs.get('max_size', 1333)
   max_boxes = dataset_configs.get('max_boxes', 100)
+  shuffle_buffer_size = dataset_configs.get('shuffle_buffer_size', 10_000)
 
   train_preprocess_fn = make_coco_transforms('train', max_size)
   eval_preprocess_fn = make_coco_transforms('validation', max_size)
@@ -193,7 +195,8 @@ def build_pipeline(*, rng, batch_size: int, eval_batch_size: int,
       decode_fn=decode_fn,
       preprocess_fn=train_preprocess_fn,
       max_size=max_size,
-      max_boxes=max_boxes)
+      max_boxes=max_boxes,
+      shuffle_buffer_size=shuffle_buffer_size)
 
   eval_ds, _ = load_split_from_tfds(
       builder,
