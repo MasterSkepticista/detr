@@ -217,6 +217,11 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
                        writer: metric_writers.MetricWriter):
   lead_host = jax.process_index() == 0
 
+  # Store a copy of the experiment config.
+  if lead_host:
+    with open(os.path.join(workdir, 'config.json'), 'w') as f:
+      f.write(config.to_json())
+
   def info(s, *a):
     if lead_host:
       logging.info("\u001b[33mNOTE\u001b[0m: " + s, *a)
