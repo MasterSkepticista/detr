@@ -161,7 +161,7 @@ class RandomSizeCrop:
     # Sample a coordinate
     i = tf.random.uniform([], 0, h - h_crop + 1, dtype=tf.int32)
     j = tf.random.uniform([], 0, w - w_crop + 1, dtype=tf.int32)
-    region = (i, j, h, w)
+    region = (i, j, h_crop, w_crop)
     return crop(features, region)
 
 
