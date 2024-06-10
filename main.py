@@ -4,6 +4,7 @@ from clu import metric_writers
 import flax
 import jax
 from ml_collections import config_flags
+import tensorflow as tf
 
 from train_lib import train_utils
 import trainer
@@ -23,6 +24,10 @@ FLAGS = flags.FLAGS
 def main(unused_argv):
   cfg = FLAGS.config
   workdir = FLAGS.workdir
+
+  # Hide any GPUs form TensorFlow. Otherwise, TF might reserve memory and make
+  # it unavailable to JAX.
+  tf.config.experimental.set_visible_devices([], 'GPU')
 
   rng = jax.random.PRNGKey(cfg.rng_seed)
   logging.info('RNG Seed: %s', rng)
