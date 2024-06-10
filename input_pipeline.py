@@ -126,6 +126,7 @@ def load_split_from_tfds(
     max_size: int,
     max_boxes: int,
     shuffle_buffer_size: int = None,
+    shuffle_seed: int = None,
 ) -> Tuple[tf.data.Dataset, tfds.core.DatasetInfo]:
 
   split = 'train' if train else 'validation'
@@ -156,7 +157,7 @@ def load_split_from_tfds(
   }
 
   if train:
-    ds = ds.shuffle(shuffle_buffer_size)
+    ds = ds.shuffle(shuffle_buffer_size, shuffle_seed)
     ds = ds.repeat()
     ds = ds.map(decode_fn, tf.data.AUTOTUNE)
     ds = ds.map(preprocess_fn, tf.data.AUTOTUNE)
@@ -174,8 +175,19 @@ def load_split_from_tfds(
 
 def build_pipeline(*, rng, batch_size: int, eval_batch_size: int,
                    num_shards: int, dataset_configs: ml_collections.ConfigDict):
-  del rng
-
+  """Builds a train/test/valid `tf.data.Dataset` pipeline.
+  
+  Args:
+    rng: Unused.
+    batch_size: Batch size for train dataset.
+    eval_batch_size: Batch size for test/valid dataset.
+    num_shards: Integer representing number of shards the batch dim is split into.
+    dataset_configs: A config dict containing dataset info.
+  
+  Returns:
+    A `dataset_utils.Dataset` object holding train/test/valid iterators and
+    dataset metadata.
+  """
   builder = tfds.builder(dataset_configs.name)
 
   max_size = dataset_configs.get('max_size', 1333)
@@ -196,7 +208,8 @@ def build_pipeline(*, rng, batch_size: int, eval_batch_size: int,
       preprocess_fn=train_preprocess_fn,
       max_size=max_size,
       max_boxes=max_boxes,
-      shuffle_buffer_size=shuffle_buffer_size)
+      shuffle_buffer_size=shuffle_buffer_size,
+      shuffle_seed=dataset_configs.get('rng_seed', 42))
 
   eval_ds, _ = load_split_from_tfds(
       builder,

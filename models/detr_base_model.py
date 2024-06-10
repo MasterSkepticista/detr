@@ -672,7 +672,8 @@ class ObjectDetectionWithMatchingModel(BaseModelWithMatching):
     unnormalized_loss_giou *= tgt_not_padding
 
     # Normalize by the number of boxes in batch.
-    num_targets = jnp.maximum(jax.lax.pmean(num_targets.sum(), axis_name='batch'), 1)
+    num_targets = jnp.maximum(
+        jax.lax.pmean(num_targets.sum(), axis_name='batch'), 1)
     normalized_loss_bbox = unnormalized_loss_bbox.sum() / num_targets
     normalized_loss_giou = unnormalized_loss_giou.sum() / num_targets
 
