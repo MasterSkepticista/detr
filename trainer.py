@@ -180,10 +180,23 @@ def make_optimizer(
         return True
     return False
 
+  def is_early_layer(path):
+    if not config.load_pretrained_backbone:
+      return False
+    names = [
+      f'/ResidualBlock_{i}/' for i in range(3)
+    ] + ['/init_bn/', '/stem_conv/']
+    for name in names:
+      if name in path:
+        return True
+    return False
+
   backbone_traversal = flax.traverse_util.ModelParamTraversal(
       lambda path, _: 'backbone' in path)
   bn_traversal = flax.traverse_util.ModelParamTraversal(
       lambda path, _: bn_and_freeze_batch_stats(path))
+  early_layer_traversal = flax.traverse_util.ModelParamTraversal(
+    lambda path, _: is_early_layer(path))
 
   all_false = jax.tree_util.tree_map(lambda _: False, params)
 
@@ -193,6 +206,7 @@ def make_optimizer(
   # Masks
   bn_mask = get_mask(bn_traversal)
   backbone_mask = get_mask(backbone_traversal)
+  early_layer_mask = get_mask(early_layer_traversal)
   weight_decay_mask = jax.tree_map(lambda p: p.ndim != 1, params)
 
   # LR Schedule
@@ -208,7 +222,8 @@ def make_optimizer(
           **oc.optax_kw,
       ),
       optax.masked(optax.scale(oc.backbone_lr_reduction), backbone_mask),
-      optax.masked(optax.scale(0), bn_mask),
+      optax.masked(optax.set_to_zero(), bn_mask),
+      optax.masked(optax.set_to_zero(), early_layer_mask)
   )
   return tx, sched_fn
 
