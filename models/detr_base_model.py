@@ -96,7 +96,7 @@ def compute_cost(
     # cost_giou < 0, but can be a bit higher in the beginning of training
     cost_upper_bound = cost_upper_bound + giou_loss_coef * 1.0
 
-  mask = mask[:, None]
+  mask = mask[:, :, None]
   cost = cost * mask + (1.0 - mask) * cost_upper_bound
 
   # Guard against NaNs and Infs
