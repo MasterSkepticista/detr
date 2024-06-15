@@ -15,6 +15,7 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from dataset_lib import dataset_utils
+from dataset_lib.coco_dataset import coco_utils
 import transforms
 
 # Values from ImageNet (as used by backbone)
@@ -251,6 +252,7 @@ def build_pipeline(*, rng, batch_size: int, eval_batch_size: int,
       'num_train_examples': builder.info.splits['train'].num_examples,
       'num_eval_examples': builder.info.splits['validation'].num_examples,
       'input_dtype': jnp.float32,
-      'target_is_onehot': False
+      'target_is_onehot': False,
+      'label_to_name': coco_utils.get_label_map(dataset_configs.name),
   }
   return dataset_utils.Dataset(train_iter, eval_iter, None, meta_data)
