@@ -423,19 +423,19 @@ def log_train_summary(
   train_logs = stack_forest(extra_training_logs)
 
   # Write metrics.
-  writer.write_scalars(
-      step,
-      {
-          key_separator.join((prefix, key)): val
-          for key, val in train_metrics_summary.items()
-      },
-  )
-  writer.write_scalars(
-      step,
-      {
-          key: val.mean() for key, val in train_logs.items()
-      },
-  )
+  if jax.process_index() == 0:
+    train_metrics_summary = {
+        key_separator.join((prefix, key)): val
+        for key, val in train_metrics_summary.items()
+    }
+    train_logs = {key: val.mean() for key, val in train_logs.items()}
+
+    writer.write_scalars(step, train_metrics_summary)
+    writer.write_scalars(step, train_logs)
+
+    # Log to stdout
+    for name, value in {**train_logs, **train_metrics_summary}.items():
+      logging.info(f"\u001b[35m[{step}]\u001b[0m {name} = {value:.4f}")
 
   if flush_writer:
     writer.flush()
@@ -493,13 +493,16 @@ def log_eval_summary(
   # Adds extra_eval_summary to the returned eval_summary.
   eval_metrics_summary.update(extra_eval_summary)
 
-  writer.write_scalars(
-      step,
-      {
-          key_separator.join((prefix, key)): val
-          for key, val in eval_metrics_summary.items()
-      },
-  )
+  if jax.process_index() == 0:
+    eval_metrics_summary = {
+        key_separator.join((prefix, key)): val
+        for key, val in eval_metrics_summary.items()
+    }
+    writer.write_scalars(step, eval_metrics_summary)
+
+    # Log to stdout
+    for name, value in eval_metrics_summary.items():
+      logging.info(f"\u001b[35m[{step}]\u001b[0m {name} = {value:.4f}")
 
   if flush_writer:
     writer.flush()

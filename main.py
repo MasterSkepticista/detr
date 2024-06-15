@@ -1,13 +1,14 @@
 """Entrypoint for training DETR in JAX."""
-from absl import app, flags, logging
-from clu import metric_writers
+import os
+
 import flax
 import jax
-from ml_collections import config_flags
 import tensorflow as tf
-
-from train_lib import train_utils
 import trainer
+from absl import app, flags, logging
+from clu import metric_writers
+from ml_collections import config_flags
+from train_lib import train_utils
 
 logging.set_verbosity('info')
 
@@ -33,9 +34,8 @@ def main(unused_argv):
   logging.info('RNG Seed: %s', rng)
   data_rng, rng = jax.random.split(rng)
 
-  writer = metric_writers.create_default_writer(
-      logdir=workdir, just_logging=jax.process_index() > 0)
-
+  writer = metric_writers.AsyncWriter(
+      metric_writers.SummaryWriter(logdir=workdir))
   dataset = train_utils.get_dataset(cfg, rng=data_rng)
   trainer.train_and_evaluate(
       rng=rng, dataset=dataset, config=cfg, workdir=workdir, writer=writer)
