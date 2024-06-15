@@ -255,19 +255,13 @@ class BaseModelWithMatching(base_model.BaseModel):
     src_logits = outputs['pred_logits']
     num_classes = src_logits.shape[-1]
 
-    # Copy unpermuted logits and targets; this is done to be sure that prec@1
-    # evaluation is not in any way affected by the matching.
-    orig_src_logits, orig_tgt_labels = src_logits, targets
-
     # Apply the permutation communicated by indices.
     src_logits = model_utils.simple_gather(src_logits, indices[:, 0])
     tgt_labels = model_utils.simple_gather(targets, indices[:, 1])
     if self.dataset_meta_data.get('target_is_onehot', False):
       tgt_labels_onehot = tgt_labels
-      orig_tgt_labels_onehot = orig_tgt_labels
     else:
       tgt_labels_onehot = jax.nn.one_hot(tgt_labels, num_classes)
-      orig_tgt_labels_onehot = jax.nn.one_hot(orig_tgt_labels, num_classes)
 
     # Normalization before masking is important so that masked classes can be
     # assigned when using softmax normalization.
@@ -317,22 +311,6 @@ class BaseModelWithMatching(base_model.BaseModel):
         num_correct = model_utils.weighted_correctly_classified(
             src_log_p, tgt_labels_onehot, weights=batch_weights)
         metrics['class_accuracy'] = (num_correct, batch_num_inputs)
-
-      if 'loss_bbox' not in self.loss_terms_weights:
-        # Prec@1 for classification-only models.
-        if batch_weights is not None:
-          batch_num_inputs = batch_weights.sum()
-        else:
-          batch_num_inputs = jnp.asarray(tgt_labels_onehot.shape[0])
-        max_logits = jnp.max(orig_src_logits, axis=-2)
-        tgt_labels_multihot = jnp.max(orig_tgt_labels_onehot, axis=-2)
-        # Collapse all predictions into one majority class. If it exists,
-        # multi-hot target would have a 1, and 0 otherwise.
-        prec_at_one = model_utils.weighted_top_one_correctly_classified(
-            max_logits[:, 1:],
-            tgt_labels_multihot[:, 1:],
-            weights=batch_weights)
-        metrics['prec@1'] = (prec_at_one, batch_num_inputs)
 
     # Sum metrics and normalizers over all replicas.
     for k, v in metrics.items():
@@ -643,7 +621,7 @@ class ObjectDetectionWithMatchingModel(BaseModelWithMatching):
     # Some of the boxes are padding. We want to discount them from the loss.
     target_is_onehot = self.dataset_meta_data.get('target_is_onehot', False)
     if target_is_onehot:
-      tgt_not_padding = 1 - targets['labels'][..., 0]
+      tgt_not_padding = targets['labels'][..., 0] == 0
     else:
       tgt_not_padding = targets['labels'] != 0
 

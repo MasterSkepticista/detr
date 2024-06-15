@@ -13,6 +13,8 @@ from absl import logging
 import jax
 import numpy as np
 import PIL
+import PIL.ImageFont
+import PIL.ImageDraw
 import scipy.special
 import tensorflow as tf
 
@@ -167,7 +169,7 @@ def draw_boxes_side_by_side(pred: Dict[str, Any], batch: Dict[str, Any],
   viz = []
 
   # Unnormalize images [-1, 1] -> [0, 255].
-  imgs = tf.image.convert_image_dtype(batch['inputs'] / 2. + 0.5, tf.uint8)
+  imgs = ((batch['inputs'] / 2. + 0.5) * 255.0).astype(np.uint8)
 
   font = PIL.ImageFont.load_default()
 
