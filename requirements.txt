@@ -1,4 +1,4 @@
-tensorflow==2.15.1
+tensorflow
 tensorflow_datasets
 ml_collections
 pycocotools
@@ -6,4 +6,4 @@ flax
 optax
 clu
 ott-jax
-jax[cuda12]==0.4.28
+jax[cuda12]==0.4.29
