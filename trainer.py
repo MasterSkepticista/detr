@@ -170,7 +170,7 @@ def make_optimizer(
   """Makes an Optax optimizer for DETR."""
   oc = config.optimizer_configs
 
-  def bn_and_freeze_batch_stats(path):
+  def is_bn(path):
     # For DETR we need to skip the BN affine transforms as well.
     if not config.freeze_backbone_batch_stats:
       return False
@@ -192,9 +192,9 @@ def make_optimizer(
     return False
 
   backbone_traversal = flax.traverse_util.ModelParamTraversal(
-      lambda path, _: 'backbone' in path)
+      lambda path, _: ('backbone' in path) and not is_bn(path))
   bn_traversal = flax.traverse_util.ModelParamTraversal(
-      lambda path, _: bn_and_freeze_batch_stats(path))
+    lambda path, _: is_bn(path))
   early_layer_traversal = flax.traverse_util.ModelParamTraversal(
     lambda path, _: is_early_layer(path))
 
@@ -466,7 +466,7 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
           f'sidebyside_{i}/detection': viz_[None, ...]
           for i, viz_ in enumerate(viz)
       })
-      del train_predictions
+    del train_predictions
 
     if (step % log_summary_steps == 0) or (step == total_steps - 1):
       ########## LOG TRAIN SUMMARY #########
