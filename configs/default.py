@@ -12,7 +12,7 @@ def get_config():
   # Dataset config
   config.dataset_configs = ml_collections.ConfigDict()
   config.dataset_configs.name = 'coco/2017'
-  config.dataset_configs.max_size = 640
+  config.dataset_configs.max_size = 1333
   config.dataset_configs.max_boxes = 99
   config.dataset_configs.shuffle_buffer_size = 10_000
   config.dataset_configs.input_range = (-1., 1.)
@@ -33,7 +33,7 @@ def get_config():
   config.backbone_width = 1
   config.backbone_depth = 50
   config.dropout_rate = 0.1
-  config.attention_dropout_rate = 0.
+  config.attention_dropout_rate = 0.1
 
   # Loss
   config.aux_loss = True
@@ -68,6 +68,8 @@ def get_config():
   # Logging/checkpointing
   config.checkpoint = True
   config.xprof = False
+  config.debug = False
+  config.log_large_summary_steps = steps_per_epoch
   config.log_summary_steps = 400
   config.log_eval_steps = steps_per_epoch
   return config
