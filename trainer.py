@@ -197,6 +197,8 @@ def make_optimizer(
     lambda path, _: is_bn(path))
   early_layer_traversal = flax.traverse_util.ModelParamTraversal(
     lambda path, _: is_early_layer(path))
+  weight_decay_traversal = flax.traverse_util.ModelParamTraversal(
+    lambda path, _: path.endswith('kernel'))
 
   all_false = jax.tree_util.tree_map(lambda _: False, params)
 
@@ -207,7 +209,7 @@ def make_optimizer(
   bn_mask = get_mask(bn_traversal)
   backbone_mask = get_mask(backbone_traversal)
   early_layer_mask = get_mask(early_layer_traversal)
-  weight_decay_mask = jax.tree_map(lambda p: p.ndim != 1, params)
+  weight_decay_mask = get_mask(weight_decay_traversal)
 
   # LR Schedule
   sched_fn = u.create_learning_rate_schedule(
