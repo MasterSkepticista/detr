@@ -1,6 +1,6 @@
 """Implementation of ResNet.
 
-Borrowed from google-research/scenic.
+Modified from google-research/scenic.
 """
 
 import functools
@@ -13,10 +13,20 @@ from model_lib.layers import nn_layers
 
 
 class ResidualBlock(nn.Module):
-  """ResNet block."""
+  """Bottleneck ResNet block.
+  
+  Attributes:
+    filters: Number of filters.
+    strides: Tuple of ints, strides applied in the 3x3 conv layer.
+    bottleneck: Whether to build a bottleneck version of residual.
+    zero_scale_init: Whether to initialize scale parameter of last normalization
+      of residual block as zeros instead of ones. 
+    dtype: DType of the computation.
+  """
   filters: int
   strides: Tuple[int, int] = (1, 1)
   bottleneck: bool = True
+  zero_scale_init: bool = False
   dtype: jnp.dtype = jnp.float32
 
   @nn.compact
@@ -50,7 +60,16 @@ class ResidualBlock(nn.Module):
       y = conv(nout, (1, 1), name='conv3')(y)
     else:
       y = conv(nout, (3, 3), padding=[(1, 1), (1, 1)], name='conv3')(y)
-    y = batch_norm(name='bn3', scale_init=nn.initializers.zeros)(y)
+
+    # Zero-initialize the last BN in each residual branch,
+    # so that the residual branch starts with zeros, and each residual block
+    # behaves like an identity. This improves the model by 0.2~0.3%
+    # according to https://arxiv.org/abs/1706.02677
+    scale_init = nn.initializers.ones
+    if self.zero_scale_init:
+      scale_init = nn.initializers.zeros
+
+    y = batch_norm(name='bn3', scale_init=scale_init)(y)
     y = nn_layers.IdentityLayer(name='relu3')(nn.relu(residual + y))
     return y
 
