@@ -240,21 +240,17 @@ class MultiHeadDotProductAttention(nn.Module):
     query, key, value = (dense(name='query')(query), dense(name='key')(key),
                          dense(name='value')(value))
 
-    # Create attention masks
+    # Create attention masks.
+    mask = None
     if key_padding_mask is not None:
-      attention_bias = (1 - key_padding_mask) * -1e10
-      # add head and query dimension
-      attention_bias = jnp.expand_dims(attention_bias, -2)
-      attention_bias = jnp.expand_dims(attention_bias, -2)
-    else:
-      attention_bias = None
+      mask = key_padding_mask[:, jnp.newaxis, jnp.newaxis, :]
 
     # Apply attention
     x = attention_layers.dot_product_attention(
         query,
         key,
         value,
-        bias=attention_bias,
+        mask=mask,
         dropout_rate=self.dropout_rate,
         broadcast_dropout=self.broadcast_dropout,
         dropout_rng=self.make_rng('dropout') if train else None,

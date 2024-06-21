@@ -45,6 +45,7 @@ def dot_product_attention(
     key: jnp.ndarray,
     value: jnp.ndarray,
     *,
+    mask: Optional[jnp.ndarray] = None,
     bias: Optional[jnp.ndarray] = None,
     broadcast_dropout: bool = True,
     dropout_rate: float = 0.1,
@@ -68,6 +69,9 @@ def dot_product_attention(
         `[batch..., kv_length, num_heads, qk_depth_per_head]`.
       value: Values to be used in attention with shape of 
         `[batch..., kv_length, num_heads, v_depth_per_head]`.
+      mask: Mask for the attention weights. This should be broadcastable to
+        shape `[batch..., num_heads, q_length, kv_length]`. This should be a
+        tensor of booleans, with `False` representing values to be masked out.
       bias: Bias for the attention weights. This should be broadcastable to 
         shape `[batch..., num_heads, q_length, kv_length]`. This can be used for
         incorporating causal masks, padding masks, proximity bias etc.
@@ -98,7 +102,11 @@ def dot_product_attention(
   attn_weights = jnp.einsum(
       '...qhd,...khd->...hqk', query, key, precision=precision)
 
-  # Apply attention bias
+  # Apply attention bias/mask
+  if mask is not None:
+    big_neg = jnp.finfo(jnp.float32).min
+    attn_weights = jnp.where(mask, attn_weights, big_neg)
+
   if bias is not None:
     attn_weights = attn_weights + bias
 
