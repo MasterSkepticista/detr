@@ -58,66 +58,37 @@ def compute_cost(
                                  (giou_loss_coef is None)):
     raise ValueError('For detection, both `bbox_loss_coef` and `giou_loss_coef`'
                      ' must be set.')
-
-  batch_size, max_num_boxes = tgt_labels.shape[:2]
-  num_queries = out_prob.shape[1]
-  if target_is_onehot:
-    mask = tgt_labels[..., 0] == 0  # All instances not padding.
-  else:
-    mask = tgt_labels != 0
-
   # [B, N, M]
   cost_class = -out_prob  # Actually, (1-out_prob), but constants are discarded.
-  max_cost_class = 0.0
   if target_is_onehot:
     cost_class = jnp.einsum('bnl,bml->bnm', cost_class, tgt_labels)
   else:
     cost_class = jax.vmap(jnp.take, (0, 0, None))(cost_class, tgt_labels, 1)
 
-  cost = class_loss_coef * cost_class
-  cost_upper_bound = class_loss_coef * max_cost_class
+  # Compute L1 cost between boxes.
+  diff = jnp.abs(out_bbox[:, :, None] - tgt_bbox[:, None, :])
+  cost_bbox = jnp.sum(diff, axis=-1)
 
-  if out_bbox is not None:
-    # Compute L1 cost between boxes
-    diff = jnp.abs(out_bbox[:, :, None] - tgt_bbox[:, None, :])
-    cost_bbox = jnp.sum(diff, axis=-1)  # [B, N, M]
-    cost = cost + bbox_loss_coef * cost_bbox
+  # Compute GIoU cost between boxes.
+  cost_giou = -box_utils.generalized_box_iou(
+      box_utils.box_cxcywh_to_xyxy(out_bbox),
+      box_utils.box_cxcywh_to_xyxy(tgt_bbox),
+      all_pairs=True)
 
-    # Update upper bounds
-    cost_upper_bound = cost_upper_bound + bbox_loss_coef * 4.0
+  total_cost = (
+      class_loss_coef * cost_class + bbox_loss_coef * cost_bbox +
+      giou_loss_coef * cost_giou)
 
-    # [B, N, M]
-    cost_giou = -box_utils.generalized_box_iou(
-        box_utils.box_cxcywh_to_xyxy(out_bbox),
-        box_utils.box_cxcywh_to_xyxy(tgt_bbox),
-        all_pairs=True)
-    cost = cost + giou_loss_coef * cost_giou
-
-    # cost_giou < 0, but can be a bit higher in the beginning of training
-    cost_upper_bound = cost_upper_bound + giou_loss_coef * 1.0
-
-  mask = mask[:, :, None]
-  cost = cost * mask + (1.0 - mask) * cost_upper_bound
-
-  # Guard against NaNs and Infs
-  cost = jnp.nan_to_num(
-      cost,
-      nan=cost_upper_bound,
-      posinf=cost_upper_bound,
-      neginf=cost_upper_bound)
-  assert cost.shape == (batch_size, num_queries, max_num_boxes)
-
-  # Compute the number of unpadded columns for each batch element.
+  # Compute the number of valid boxes for each batch element.
   # It is assumed that all padding is trailing padding.
-  n_cols = jnp.where(
-      jnp.max(mask, axis=1),  # apply mask per-sample
-      jnp.expand_dims(
-          jnp.arange(1, max_num_boxes + 1),
-          axis=0),  # id-tensor to be broadcasted to all elements in the batch
-      0,  # trailing padding boxes to be replaced by id 0
-  )
-  n_cols = jnp.max(n_cols, axis=1)  # number of valid boxes per sample in batch
-  return cost, n_cols
+  if target_is_onehot:
+    tgt_not_padding = tgt_labels[..., 0] == 0  # All instances not padding.
+  else:
+    tgt_not_padding = tgt_labels != 0
+  
+  total_cost *= tgt_not_padding[:, None, :]
+  n_cols = jnp.sum(tgt_not_padding, axis=-1)
+  return total_cost, n_cols
 
 
 class BaseModelWithMatching(base_model.BaseModel):
