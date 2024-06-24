@@ -816,7 +816,7 @@ class DETR(nn.Module):
     _, backbone_features = resnet.ResNet(
         width=self.backbone_width,
         depth=self.backbone_depth,
-        dtype=jnp.bfloat16,
+        dtype=self.dtype,
         name='backbone')(
             inputs, train=update_batch_stats)
     x = backbone_features['stage_4']

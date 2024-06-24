@@ -43,8 +43,9 @@ _I will add full model checkpoints soon._
 
 ### Train
 ```shell
+# Trains the default DETR-R50 model.
 $> python main.py \
-   --config configs/sinkhorn.py --workdir artifacts/`date '+%m-%d_%H%M'`
+   --config configs/hungarian.py --workdir artifacts/`date '+%m-%d_%H%M'`
 ```
 
 ### Acknowledgements
