@@ -227,11 +227,21 @@ class MultiHeadDotProductAttention(nn.Module):
     query, key, value = (add_positional_emb(inputs_q, pos_emb_q),
                          add_positional_emb(inputs_kv, pos_emb_k),
                          add_positional_emb(inputs_kv, pos_emb_v))
+    
+    def custom_xavier_uniform():
+      def init(key, shape, dtype):
+        fan_out = 256
+        fan_in = 3 * fan_out
+        denominator = (fan_in + fan_out) / 2.
+        variance = jnp.asarray(1.0 / denominator)
+        return jax.random.uniform(key, shape, dtype, -1) * jnp.sqrt(3 * variance)
+      return init
+
     dense = functools.partial(
         nn.DenseGeneral,
         axis=-1,
         features=(self.num_heads, head_dim),
-        kernel_init=self.kernel_init,
+        kernel_init=custom_xavier_uniform(),
         bias_init=self.bias_init,
         use_bias=self.use_bias,
         dtype=self.dtype)
