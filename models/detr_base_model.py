@@ -304,7 +304,7 @@ class BaseModelWithMatching(base_model.BaseModel):
         # Extends `not_padded` by also-masked elements.
         not_padded = not_padded * jnp.expand_dims(batch_weights, axis=1)
       num_correct_no_pad = model_utils.weighted_correctly_classified(
-          src_log_p[..., 1:], tgt_labels_onehot[..., 1:], weights=not_padded)
+          src_log_p, tgt_labels_onehot, weights=not_padded)
       metrics['class_accuracy_not_pad'] = (num_correct_no_pad, not_padded.sum())
 
       if not self.config.get('sigmoid_loss', False):
