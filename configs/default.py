@@ -1,4 +1,8 @@
-"""Training config for DETR on MS-Coco dataset."""
+"""Training config for DETR on MS-Coco dataset using exact Hungarian Matching.
+
+This config replicates facebookresearch/detr ResNet50 (non-DC5) variant,
+achieves ~40.5mAP with a 300ep schedule.
+"""
 import ml_collections
 
 COCO_TRAIN_SIZE = 118_287
@@ -29,7 +33,6 @@ def get_config():
   config.transformer_qkv_dim = 256
   config.transformer_mlp_dim = 2048
   config.transformer_normalize_before = False
-  config.backbone_module = 'bit'  # Choose from ['bit', 'resnet']
   config.backbone_width = 1
   config.backbone_depth = 50
   config.dropout_rate = 0.1
@@ -60,7 +63,7 @@ def get_config():
   config.load_pretrained_backbone = True
   config.freeze_backbone_batch_stats = True
   config.pretrained_backbone_configs = ml_collections.ConfigDict()
-  config.pretrained_backbone_configs.checkpoint_path = 'artifacts/bit_r50x1_i1k_checkpoint'
+  config.pretrained_backbone_configs.checkpoint_path = 'artifacts/r50x1_i1k_checkpoint'
 
   # Annotations
   config.annotations_loc = './instances_val2017.json'
