@@ -11,6 +11,7 @@ from ml_collections import config_flags
 from train_lib import train_utils
 
 logging.set_verbosity('info')
+jax.config.update("jax_compilation_cache_dir", "/tmp/jax-cache")
 
 config_flags.DEFINE_config_file(
     'config', None, 'Training configuration.', lock_config=True)
