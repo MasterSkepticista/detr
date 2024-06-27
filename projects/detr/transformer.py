@@ -20,42 +20,6 @@ def mask_for_shape(shape: jnp.shape,
   return resized_mask
 
 
-class InputProj(nn.Module):
-  """Simple input projection layer.
-  
-  Attributes:
-    embed_dim: Size of the output embedding dimension.
-    num_groups: Number of channel groups for group norm.
-    kernel_size: Convolution kernel size.
-    stride: Stride in all dimensions.
-    padding: Same as nn.Conv padding type.
-    dtype: DType of the computation (default: float32).
-  """
-  embed_dim: int
-  num_groups: int = 32
-  kernel_size: int = 1
-  stride: int = 1
-  padding: Union[str, int] = 'SAME'
-  dtype: jnp.dtype = jnp.float32
-
-  @nn.compact
-  def __call__(self, x: jnp.ndarray):
-    """Use conv kernel to project into embed_dim."""
-    if isinstance(self.padding, str):
-      padding = self.padding
-    else:
-      padding = [self.padding] * 2
-    x = nn.Conv(
-        features=self.embed_dim,
-        kernel_size=[self.kernel_size] * 2,
-        strides=[self.stride] * 2,
-        padding=padding,
-        kernel_init=nn.initializers.glorot_uniform(),
-        bias_init=nn.initializers.zeros,
-    )(x)  # yapf: disable
-    x = nn.GroupNorm(num_groups=self.num_groups)(x)
-
-
 class InputPosEmbeddingSine(nn.Module):
   """Creates sinusoidal positional embeddings for the inputs."""
   hidden_dim: int
@@ -154,7 +118,7 @@ class MlpBlock(nn.Module):
   def __call__(self,
                inputs: jnp.ndarray,
                *,
-               deterministic: bool = False) -> jnp.ndarray:
+               deterministic: bool = True) -> jnp.ndarray:
     out_dim = self.out_dim or inputs.shape[-1]
     dense = functools.partial(
         nn.Dense,
@@ -222,6 +186,9 @@ class EncoderBlock(nn.Module):
         dropout_rate=self.dropout_rate,
         dtype=self.dtype)
 
+    # Broadcast mask to [bs, num_heads, query_len, key_value_len]
+    mask = padding_mask[:, jnp.newaxis, jnp.newaxis, :]
+
     def add_positional_embedding(x, pos_emb_x):
       return x if pos_emb_x is None else x + pos_emb_x
 
@@ -231,7 +198,7 @@ class EncoderBlock(nn.Module):
           inputs_q=add_positional_embedding(x, pos_embedding),
           inputs_k=add_positional_embedding(x, pos_embedding),
           inputs_v=x,
-          mask=padding_mask,
+          mask=mask,
           deterministic=not train)
       x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
       x = x + inputs
@@ -243,14 +210,14 @@ class EncoderBlock(nn.Module):
           inputs_q=add_positional_embedding(inputs, pos_embedding),
           inputs_k=add_positional_embedding(inputs, pos_embedding),
           inputs_v=inputs,
-          mask=padding_mask,
+          mask=mask,
           deterministic=not train)
       x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
       x = x + inputs
       x = nn.LayerNorm(dtype=self.dtype)(x)
-      y = mlp(x)
-      y = nn.LayerNorm(dtype=self.dtype)(y)
-      out = x + y
+      y = mlp(x, deterministic=not train)
+      y = x + y
+      out = nn.LayerNorm(dtype=self.dtype)(y)
 
     return out
 
@@ -322,6 +289,9 @@ class DecoderBlock(nn.Module):
         dropout_rate=self.dropout_rate,
         dtype=self.dtype)
 
+    # Broadcast mask to [bs, num_heads, query_len, key_value_len]
+    mask = key_padding_mask[:, jnp.newaxis, jnp.newaxis, :]
+
     def add_positional_embedding(x, pos_emb_x):
       return x if pos_emb_x is None else x + pos_emb_x
 
@@ -333,7 +303,7 @@ class DecoderBlock(nn.Module):
           inputs_k=add_positional_embedding(x, query_pos_emb),
           inputs_v=x,
           deterministic=not train)
-      x = nn.Dropout(rate=self.dropout_rate)(deterministic=not train)
+      x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
       x = x + obj_queries
 
       # Cross attention block.
@@ -342,9 +312,9 @@ class DecoderBlock(nn.Module):
           inputs_q=add_positional_embedding(y, query_pos_emb),
           inputs_k=add_positional_embedding(encoder_output, pos_embedding),
           inputs_v=encoder_output,
-          mask=key_padding_mask,
+          mask=mask,
           deterministic=not train)
-      y = nn.Dropout(rate=self.dropout_rate)(deterministic=not train)
+      y = nn.Dropout(rate=self.dropout_rate)(y, deterministic=not train)
       y = y + x
 
       # MLP Block.
@@ -368,7 +338,7 @@ class DecoderBlock(nn.Module):
           inputs_q=add_positional_embedding(x, query_pos_emb),
           inputs_k=add_positional_embedding(encoder_output, pos_embedding),
           inputs_v=encoder_output,
-          mask=key_padding_mask,
+          mask=mask,
           deterministic=not train)
       y = nn.Dropout(rate=self.dropout_rate)(y, deterministic=not train)
       y = y + x
@@ -536,19 +506,20 @@ class DETRTransformer(nn.Module):
   def __call__(self,
                inputs: jnp.ndarray,
                *,
-               padding_mask: Optional[jnp.ndarray] = None,
+               pos_embedding: jnp.ndarray,
+               padding_mask: jnp.ndarray,
                train: bool = False) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """Applies DETR on the inputs.
     
     Args:
       inputs: Tokenized image patches of shape [bs, num_tokens, hidden_dim].
+      pos_embedding: Positional embedding applied at the encoder.
       padding_mask: Boolean mask with same shape as inputs.
       train: If the model is training.
     
     Returns:
       Tuple of Encoder and Decoder outputs.
     """
-    pos_embedding = InputPosEmbeddingSine(self.qkv_dim)
     encoder_output = Encoder(
         num_heads=self.num_heads,
         num_layers=self.num_encoder_layers,
@@ -559,7 +530,10 @@ class DETRTransformer(nn.Module):
         attention_dropout_rate=self.attention_dropout_rate,
         dtype=self.dtype,
         name='encoder')(
-            inputs, padding_mask=padding_mask, train=train)
+            inputs,
+            padding_mask=padding_mask,
+            pos_embedding=pos_embedding,
+            train=train)
 
     # Note that we always learn a query positional embedding, so we simply use
     # constant zero vectors for object queries, and later when applying attention

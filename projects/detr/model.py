@@ -2,11 +2,11 @@
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import flax.linen as nn
-import jax
 import jax.numpy as jnp
 
 from models import resnet
-from projects.detr.transformer import DETRTransformer, InputProj, mask_for_shape
+from projects.detr.transformer import (DETRTransformer, InputPosEmbeddingSine,
+                                       mask_for_shape)
 
 ArrayDict = Dict[str, jnp.ndarray]
 MetricsDict = Dict[str, Tuple[jnp.ndarray, jnp.ndarray]]
@@ -121,12 +121,14 @@ class DETR(nn.Module):
     padding_mask = mask_for_shape(x.shape, padding_mask=padding_mask)
 
     # Tokenize image features
-    transformer_input = InputProj(
-        embed_dim=self.hidden_dim,
-        kernel_size=1,
-        stride=1,
-        dtype=self.dtype,
-        name='input_proj')(x).reshape(bs, h * w, self.hidden_dim)
+    transformer_input = nn.Conv(
+        features=self.hidden_dim,
+        kernel_size=(1, 1),
+        strides=(1, 1),
+        dtype=self.dtype)(x).reshape(bs, h * w, self.hidden_dim)
+
+    pos_embedding = InputPosEmbeddingSine(hidden_dim=self.hidden_dim)(
+        padding_mask)
 
     # Pass features through transformer.
     encoder_output, decoder_output = DETRTransformer(
@@ -144,6 +146,7 @@ class DETR(nn.Module):
         dtype=self.dtype,
         name='transformer')(
             inputs=transformer_input,
+            pos_embedding=pos_embedding,
             padding_mask=padding_mask.reshape(bs, h * w),
             train=train)
 
@@ -156,7 +159,11 @@ class DETR(nn.Module):
               model_output)
       return pred_logits, pred_boxes
 
-    pred_logits, pred_boxes = jax.vmap(output_projection)(decoder_output)
+    pred_logits, pred_boxes = output_projection(decoder_output)
+    
+    if not self.aux_loss:
+      return {'pred_logits': pred_logits, 'pred_boxes': pred_boxes}
+
     output = {
         'pred_logits': pred_logits[-1],
         'pred_boxes': pred_boxes[-1],
