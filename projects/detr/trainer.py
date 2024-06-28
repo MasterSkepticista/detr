@@ -24,9 +24,8 @@ import optax
 
 from dataset_lib import dataset_utils
 import detr_train_utils
-from models import detr
+from projects.detr.base_model import DETRModel
 from train_lib import pretrain_utils, train_utils
-import utils as u
 
 
 def get_train_step(apply_fn: Callable, loss_and_metrics_fn: Callable,
@@ -212,7 +211,7 @@ def make_optimizer(
   weight_decay_mask = get_mask(weight_decay_traversal)
 
   # LR Schedule
-  sched_fn = u.create_learning_rate_schedule(
+  sched_fn = train_utils.create_learning_rate_schedule(
       **sched_kw, **oc.schedule, base=oc.base_lr)
 
   # Optimizer
@@ -249,13 +248,13 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
   # Calculate total train steps using available information.
   ntrain_img = dataset.meta_data['num_train_examples']
-  total_steps = u.steps(
+  total_steps = train_utils.steps(
       'total', config, data_size=ntrain_img, batch_size=config.batch_size)
   info('Running for %d steps (%f epochs)', total_steps,
        total_steps / (ntrain_img / config.batch_size))
 
   # Initialize model, loss_fn
-  model = detr.DETRModel(config, dataset.meta_data)
+  model = DETRModel(config, dataset.meta_data)
   rng, init_rng = jax.random.split(rng)
   (params, model_state, num_trainable_params,
    gflops) = train_utils.initialize_model(
