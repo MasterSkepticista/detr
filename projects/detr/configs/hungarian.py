@@ -4,7 +4,7 @@ This config replicates facebookresearch/detr ResNet50 (non-DC5) variant,
 achieves ~40.5mAP with a 300ep schedule.
 """
 import ml_collections
-from configs.common import get_coco_config
+from projects.detr.configs.common import get_coco_config
 
 
 def get_config():

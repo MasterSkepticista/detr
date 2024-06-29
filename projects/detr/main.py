@@ -1,9 +1,9 @@
 """Entrypoint for training DETR in JAX."""
 import jax
 import ml_collections
-import trainer
 from app import run
 from clu import metric_writers
+from projects.detr import trainer
 from train_lib import train_utils
 
 

@@ -23,7 +23,7 @@ import numpy as np
 import optax
 
 from dataset_lib import dataset_utils
-import detr_train_utils
+from projects.detr import train_utils as detr_train_utils
 from projects.detr.base_model import DETRModel
 from train_lib import pretrain_utils, train_utils
 

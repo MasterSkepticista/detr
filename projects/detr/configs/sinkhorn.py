@@ -6,7 +6,7 @@ this config can be 15-100% faster overall than exact Hungarian matching while
 achieving comparable mAP scores.
 """
 import ml_collections
-from configs.common import get_coco_config
+from projects.detr.configs.common import get_coco_config
 
 
 def get_config():

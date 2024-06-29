@@ -189,7 +189,9 @@ def build_pipeline(*, rng, batch_size: int, eval_batch_size: int,
     A `dataset_utils.Dataset` object holding train/test/valid iterators and
     dataset metadata.
   """
-  builder = tfds.builder(dataset_configs.name)
+  del rng
+  tfds_name = 'coco/2017'
+  builder = tfds.builder(tfds_name)
 
   max_size = dataset_configs.get('max_size', 1333)
   max_boxes = dataset_configs.get('max_boxes', 100)
@@ -253,6 +255,6 @@ def build_pipeline(*, rng, batch_size: int, eval_batch_size: int,
       'num_eval_examples': builder.info.splits['validation'].num_examples,
       'input_dtype': jnp.float32,
       'target_is_onehot': False,
-      'label_to_name': coco_utils.get_label_map(dataset_configs.name),
+      'label_to_name': coco_utils.get_label_map(tfds_name),
   }
   return dataset_utils.Dataset(train_iter, eval_iter, None, meta_data)
