@@ -293,8 +293,18 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
   if (start_step == 0  # Which means no checkpoint was restored.
       and config.get('init_from') is not None):
-    raise NotImplementedError(
-        'Init from pretrained checkpoint is not supported.')
+    init_checkpoint_path = config.init_from.get('checkpoint_path')
+    restored_train_state = flax_restore_checkpoint(
+        init_checkpoint_path, target=None)
+    train_state = pretrain_utils.init_from_pretrain_state(
+        train_state,
+        restored_train_state,
+        ckpt_prefix_path=config.init_from.get('ckpt_prefix_path'),
+        model_prefix_path=config.init_from.get('model_prefix_path'),
+        name_mapping=config.init_from.get('name_mapping'),
+        skip_regex=config.init_from.get('skip_regex'))
+    del restored_train_state
+
   elif start_step == 0 and config.get('load_pretrained_backbone', False):
     # Only load pretrained backbone if we are at the beginning of training.
     bb_ckpt_path = config.pretrained_backbone_configs.get('checkpoint_path')
@@ -514,6 +524,13 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
         if lead_host:
           train_utils.save_checkpoint(workdir,
                                       jax_utils.unreplicate(train_state))
+
+  # Last eval (useful if training is skipped).
+  with report_progress.timed('eval'):
+    train_state = train_utils.sync_model_state_across_replicas(train_state)
+    (last_eval_step,
+     last_eval_metrics), last_eval_future = evaluate(train_state,
+                                                     total_steps + 1)
 
   # Wait until computations are done before exiting.
   pool.shutdown()
