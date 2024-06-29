@@ -4,6 +4,7 @@ import ml_collections
 from app import run
 from clu import metric_writers
 from projects.detr import trainer
+from projects.detr import input_pipeline  # This is necessary to register the ds
 from train_lib import train_utils
 
 

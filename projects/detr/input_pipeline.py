@@ -15,8 +15,9 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 
 from dataset_lib import dataset_utils
+from dataset_lib import datasets
 from dataset_lib.coco_dataset import coco_utils
-import transforms
+from projects.detr import transforms
 
 # Values from ImageNet (as used by backbone)
 _MEAN_RGB = [0.48, 0.456, 0.406]
@@ -173,7 +174,7 @@ def load_split_from_tfds(
   ds = ds.prefetch(tf.data.AUTOTUNE)
   return ds, builder.info
 
-
+@datasets.add_dataset('coco_detr')
 def build_pipeline(*, rng, batch_size: int, eval_batch_size: int,
                    num_shards: int, dataset_configs: ml_collections.ConfigDict):
   """Builds a train/test/valid `tf.data.Dataset` pipeline.

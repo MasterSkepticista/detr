@@ -20,7 +20,7 @@ from tensorflow.io import gfile
 
 from common_lib import debug_utils, tree_utils
 from dataset_lib import dataset_utils
-import input_pipeline
+from dataset_lib.datasets import DatasetRegistry
 
 PyTree = Any
 
@@ -250,7 +250,8 @@ def get_dataset(
 
   dataset_configs = dataset_configs or config.get('dataset_configs', {})
   num_local_shards = jax.local_device_count()
-  dataset = input_pipeline.build_pipeline(
+  dataset_builder = DatasetRegistry.get(config.dataset_name)
+  dataset = dataset_builder(
       rng=rng,
       batch_size=local_batch_size,
       eval_batch_size=eval_local_batch_size,
