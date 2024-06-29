@@ -39,15 +39,37 @@ Alternatively, modify `config.pretrained_backbone_configs.checkpoint_path` in th
 |BiT-R50x1-i1k|76.8%|[Link](https://drive.google.com/file/d/1iVBV9jghBR2mseSc5z2SB1b8QptI9mju/view?usp=drive_link)|
 |R50x1-i1k|76.1%|[Link](https://drive.google.com/file/d/14N0upIZHSlFkvF4E8NNH8dxKVwS6RQjb/view?usp=drive_link)|
 
-_I will add full model checkpoints soon._
+Checkpoints (all non-DC5 variants) created using this repository:
+
+|Checkpoint|GFLOPs|$AP$|$AP_{50}$|$AP_{75}$|$AP_S$|$AP_M$|$AP_L$|
+|-|-|-|-|-|-|-|-|
+[DETR-R50-640](https://drive.google.com/file/d/1XYV3ULIDwa59AVYSAvBeIOFXwRR_GZ46/view?usp=sharing)|38.5|33.14|52.89|34.00|10.54|35.10|55.53|
+<!-- [DETR-R50-1333*]()|33.14|52.89|34.00|10.54|35.10|55.53| -->
+
+\*matches official DETR baseline.
 
 ### Train
 ```shell
-# Trains the default DETR-R50 model.
+# Trains the default DETR-R50-1333 model.
 $> python main.py \
    --config configs/hungarian.py --workdir artifacts/`date '+%m-%d_%H%M'`
 ```
 
+### Evaluate
+1. Download one of the pretrained checkpoints.
+    ```python
+    # In configs/common.py (or any)
+    config.init_from = ml_collections.ConfigDict()
+    config.init_from.pretrained_checkpoint = '/path/to/checkpoint'
+    ```
+2. Replace `config.total_epochs` with `config.total_steps = 0` to skip to eval.
+
 ### Acknowledgements
 Large parts of this codebase were motivated by [scenic](https://github.com/google-research/scenic/) and 
 [big_vision](https://github.com/google-research/big_vision/).
+
+### Contributing
+I maintain this project on a best-effort basis. Please raise an issue if you face
+problems using this repository.
+
+PR contributions are welcome.

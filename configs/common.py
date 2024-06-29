@@ -54,6 +54,10 @@ def get_coco_config():
     decay_type='stair', steps=[200 * steps_per_epoch], mults=[0.1])
   config.optimizer_configs.optax_kw = dict(b1=0.9, b2=0.999, weight_decay=1e-4)
 
+  # Loading full model checkpoint (for transfer/eval)
+  # config.init_from = ml_collections.ConfigDict()
+  # config.init_from.checkpoint_path = 'artifacts/detr_r50x1_coco_640'
+ 
   # Logging/checkpointing
   config.checkpoint = True
   config.xprof = False
