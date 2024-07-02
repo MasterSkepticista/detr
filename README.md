@@ -8,12 +8,12 @@ This is a minimal implementation of [DETR](https://arxiv.org/abs/2005.12872) usi
       <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/detr.png" alt="DETR Architecture">
     </td>
     <td align="center" style="padding-bottom: 10px;">
-      <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/jax.png" alt="JAX logo" width="30%">
+      <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/jax.png" alt="JAX logo" width="50%">
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/flax.png" alt="Flax logo" width="20%">
+      <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/flax.png" alt="Flax logo" width="40%">
     </td>
   </tr>
 </table>
