@@ -4,16 +4,16 @@ This is a minimal implementation of [DETR](https://arxiv.org/abs/2005.12872) usi
 
 <table align="center">
   <tr>
-    <td colspan="2" align="center">
+    <td rowspan="2" align="center">
       <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/detr.png" alt="DETR Architecture">
+    </td>
+    <td align="center" style="padding-bottom: 10px;">
+      <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/jax.png" alt="JAX logo" width="30%">
     </td>
   </tr>
   <tr>
-    <td align="center" style="padding-right: 20px;">
-      <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/jax.png" alt="JAX logo" width="50%">
-    </td>
     <td align="center">
-      <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/flax.png" alt="Flax logo" width="40%">
+      <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/flax.png" alt="Flax logo" width="20%">
     </td>
   </tr>
 </table>
