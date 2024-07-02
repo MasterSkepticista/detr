@@ -1,6 +1,6 @@
 """COCO evaluation metrics based on pycocotools.
 
-Implementation is based on
+Implementation is based on a cut-down version of
 https://github.com/google/flax/blob/ac5e46ed448f4c6801c35d15eb15f4638167d8a1/examples/retinanet/coco_eval.py
 
 """

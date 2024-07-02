@@ -1,9 +1,8 @@
-# ----------------------------------------------------------------
-# Modified from Scenic DETR (https://github.com/google-research/scenic/scenic/baselines/detr)
-# Copyright 2024 The Scenic Authors.
-# ----------------------------------------------------------------
+"""Transforms for object detection.
 
-"""Transforms for object detection."""
+Modifications from Scenic:
+* Bug fix for RandomResize crop region.
+"""
 from typing import Any, Dict
 
 import tensorflow as tf

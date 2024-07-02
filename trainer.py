@@ -1,9 +1,10 @@
-# ----------------------------------------------------------------
-# Modified from Scenic DETR (https://github.com/google-research/scenic/scenic/baselines/detr)
-# Copyright 2024 The Scenic Authors.
-# ----------------------------------------------------------------
+"""Trainer and Evaluator for DETR.
 
-"""Trainer and Evaluator for DETR."""
+Modifications from Scenic:
+* Optax APIs instead of deprecated flax.optim API.
+* Refactored `train_step`.
+* Addl. debug logging.
+"""
 import os
 from concurrent import futures
 import functools

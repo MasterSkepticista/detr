@@ -1,6 +1,7 @@
 """Implementation of ResNet.
 
-Modified from google-research/scenic.
+Modifications from google-research/scenic:
+* Initializations for Conv2D and Dense match torchvision reference.
 """
 
 import functools
@@ -8,7 +9,6 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import flax.linen as nn
 import jax.numpy as jnp
-
 from model_lib.layers import nn_layers
 
 

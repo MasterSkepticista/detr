@@ -1,8 +1,3 @@
-# ----------------------------------------------------------------
-# Modified from Scenic 
-# (https://github.com/google-research/scenic/scenic/dataset_lib/coco_dataset/coco_utils.py)
-# Copyright 2024 The Scenic Authors.
-# ----------------------------------------------------------------
 """Common utils for coco dataset."""
 
 from typing import Dict
