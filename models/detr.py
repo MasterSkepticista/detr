@@ -1,12 +1,8 @@
-# ----------------------------------------------------------------
-# Modified from Scenic DETR (https://github.com/google-research/scenic/scenic/baselines/detr)
-# Copyright 2024 The Scenic Authors.
-# ----------------------------------------------------------------
-
 """Implementation of the DETR Architecture.
 
 End-to-End Object Detection with Transformers: https://arxiv.org/abs/2005.12872
-Implementation is based on: https://github.com/facebookresearch/detr
+Implementation is based on: https://github.com/facebookresearch/detr and
+https://github.com/google-research/scenic/tree/main/scenic/projects/baselines/detr
 """
 
 import functools
@@ -16,9 +12,8 @@ import flax.linen as nn
 import jax
 import jax.numpy as jnp
 import numpy as np
-
 from model_lib.layers import attention_layers
-from models import bit, detr_base_model, resnet
+from models import detr_base_model, resnet
 
 pytorch_kernel_init = functools.partial(nn.initializers.variance_scaling,
                                         1. / 3., 'fan_in', 'uniform')
@@ -227,14 +222,19 @@ class MultiHeadDotProductAttention(nn.Module):
     query, key, value = (add_positional_emb(inputs_q, pos_emb_q),
                          add_positional_emb(inputs_kv, pos_emb_k),
                          add_positional_emb(inputs_kv, pos_emb_v))
-    
+
     def custom_xavier_uniform():
+      """Xavier uniform with fan-in corrected for split dense matrices."""
+
       def init(key, shape, dtype):
-        fan_out = 256
-        fan_in = 3 * fan_out
+        # FIXME: Assumes qkv all have same dimensions.
+        fan_out = features
+        fan_in = 3 * qkv_features
         denominator = (fan_in + fan_out) / 2.
         variance = jnp.asarray(1.0 / denominator)
-        return jax.random.uniform(key, shape, dtype, -1) * jnp.sqrt(3 * variance)
+        return jax.random.uniform(key, shape, dtype, -1) * jnp.sqrt(
+            3 * variance)
+
       return init
 
     dense = functools.partial(
@@ -816,7 +816,7 @@ class DETR(nn.Module):
     _, backbone_features = resnet.ResNet(
         width=self.backbone_width,
         depth=self.backbone_depth,
-        dtype=self.dtype,
+        dtype=jnp.bfloat16,
         name='backbone')(
             inputs, train=update_batch_stats)
     x = backbone_features['stage_4']
