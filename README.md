@@ -9,6 +9,8 @@ This is a minimal implementation of [DETR](https://arxiv.org/abs/2005.12872) usi
   <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/jax.png" alt="JAX logo" width="20%" style="margin-right: 30px;">
   <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/flax.png" alt="JAX logo" width="12%">
 </div>
+
+
 ### Getting Started
 
 * Setup:
