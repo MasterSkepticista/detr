@@ -2,13 +2,21 @@
 
 This is a minimal implementation of [DETR](https://arxiv.org/abs/2005.12872) using `jax` and `flax`.
 
-<div style="display: flex; justify-content: center; align-items: center;">
-  <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/detr.png" alt="DETR Architecture">
-</div>
-<div style="display: flex; justify-content: center; align-items: center; margin-top: 10px;">
-  <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/jax.png" alt="JAX logo" width="20%" style="margin-right: 30px;">
-  <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/flax.png" alt="JAX logo" width="12%">
-</div>
+<table align="center">
+  <tr>
+    <td colspan="2" align="center">
+      <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/detr.png" alt="DETR Architecture">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" style="padding-right: 20px;">
+      <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/jax.png" alt="JAX logo" width="50%">
+    </td>
+    <td align="center">
+      <img src="https://github.com/MasterSkepticista/detr/raw/main/.github/flax.png" alt="Flax logo" width="40%">
+    </td>
+  </tr>
+</table>
 
 
 ### Getting Started
