@@ -136,3 +136,26 @@ def tree_map_with_names(f: Callable[[jnp.ndarray], jnp.ndarray], tree: PyTree,
   rest_vals = [list(zip(*tree_flatten_with_names(t)[0])[1]) for t in rest]
   vals = [f(*name_and_vals) for name_and_vals in zip(names, vals, *rest_vals)]
   return tree_def.unflatten(vals)
+
+def recover_tree(keys, values):
+  """Recovers a tree as a nested dict from flat names and values.
+  
+  Args:
+    keys: a list of keys, where '/' is used as a separator between nodes.
+    values: a list of leaf values.
+
+  Returns:
+    A nested tree-like dict.  
+  """
+  tree = {}
+  sub_trees = collections.defaultdict(list)
+  for k, v in zip(keys, values):
+    if "/" not in k:
+      tree[k] = v
+    else:
+      k_left, k_right = k.split("/", 1)
+      sub_trees[k_left].append((k_right, v))
+  for k, kv_pairs in sub_trees.items():
+    k_subtree, v_subtree = zip(*kv_pairs)
+    tree[k] = recover_tree(k_subtree, v_subtree)
+  return tree
