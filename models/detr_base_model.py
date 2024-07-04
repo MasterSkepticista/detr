@@ -314,6 +314,7 @@ class BaseModelWithMatching(base_model.BaseModel):
       denom = tgt_labels_onehot[..., 1:].sum(axis=[1, 2])
 
     if batch_weights is not None:
+      unnormalized_loss_class *= batch_weights[..., None]
       denom *= batch_weights
 
     return unnormalized_loss_class, denom
