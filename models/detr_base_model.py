@@ -80,7 +80,7 @@ def compute_cost(
     tgt_not_padding = tgt_labels[..., 0] == 0  # All instances not padding.
   else:
     tgt_not_padding = tgt_labels != 0
-  
+
   total_cost *= tgt_not_padding[:, None, :]
   n_cols = jnp.sum(tgt_not_padding, axis=-1)
   return total_cost, n_cols
@@ -374,23 +374,27 @@ class BaseModelWithMatching(base_model.BaseModel):
         [batch['label']['boxes'], instance], axis=-2)
 
     if matches is None:
-      if 'cost' not in outputs:
-        cost, n_cols = self.compute_cost_matrix(outputs, batch['label'])
-      else:
-        cost, n_cols = outputs['cost'], outputs.get('cost_n_cols')
-      matches = self.matcher(cost, n_cols)
-      if 'aux_outputs' in outputs:
-        matches = [matches]
-        for aux_pred in outputs['aux_outputs']:
-          if 'cost' not in outputs:
-            cost, n_cols = self.compute_cost_matrix(aux_pred, batch['label'])
-          else:
-            cost, n_cols = aux_pred['cost'], outputs.get('cost_n_cols')
-          matches.append(self.matcher(cost, n_cols))
 
-    if not isinstance(matches, (list, tuple)):
-      # Ensure matches come as a sequence.
-      matches = [matches]
+      def _compute_matches(predictions, targets):
+        """Returns matches for one set of predictions and targets."""
+        cost, n_cols = self.compute_cost_matrix(predictions, targets)
+        match = self.matcher(cost, n_cols)
+        return match
+
+      predictions = [{
+          "pred_logits": outputs["pred_logits"],
+          "pred_boxes": outputs["pred_boxes"]
+      }]
+      if 'aux_outputs' in outputs:
+        predictions.extend(outputs["aux_outputs"])
+
+      # Stack list of pytrees.
+      predictions = jax.tree.map(lambda *args: jnp.stack(args), *predictions)
+
+      # Compute matches in parallel for all outputs.
+      matches = jax.vmap(_compute_matches, (0, None))(predictions,
+                                                      batch["label"])
+      matches = list(matches)
 
     # If the matching is not complete (i.e. the number of queries is larger than
     # the number of labels) we will pad the matches.
