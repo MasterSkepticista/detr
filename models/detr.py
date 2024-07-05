@@ -819,7 +819,7 @@ class DETR(nn.Module):
         dtype=jnp.bfloat16,
         name='backbone')(
             inputs, train=update_batch_stats)
-    x = backbone_features['stage_4']
+    x = backbone_features['layer4']
     bs, h, w, _ = x.shape
 
     if padding_mask is None:

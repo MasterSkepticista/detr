@@ -15,7 +15,6 @@ def get_coco_config():
   config.dataset_configs.max_size = 1333
   config.dataset_configs.max_boxes = 99
   config.dataset_configs.shuffle_buffer_size = 10_000
-  config.dataset_configs.input_range = (-1., 1.)
 
   # Model config
   config.model_dtype_str = 'float32'

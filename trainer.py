@@ -175,7 +175,7 @@ def make_optimizer(
     # For DETR we need to skip the BN affine transforms as well.
     if not config.freeze_backbone_batch_stats:
       return False
-    names = ['/bn1/', '/bn2/', '/bn3/', '/init_bn/', '/proj_bn/']
+    names = ['bn1', 'bn2', 'bn3', 'downsample/1']
     for s in names:
       if s in path:
         return True
@@ -184,10 +184,7 @@ def make_optimizer(
   def is_early_layer(path):
     if not config.load_pretrained_backbone:
       return False
-    names = [
-      f'/ResidualBlock_{i}/' for i in range(3)
-    ] + ['/init_bn/', '/stem_conv/']
-    for name in names:
+    for name in ["backbone/conv1", "backbone/bn1", "backbone/layer1"]:
       if name in path:
         return True
     return False
