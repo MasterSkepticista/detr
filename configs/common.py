@@ -61,7 +61,7 @@ def get_coco_config():
   config.checkpoint = True
   config.xprof = False
   config.debug = False
-  config.log_large_summary_steps = steps_per_epoch
+  config.log_large_summary_steps = 0  # 0: disable
   config.log_summary_steps = 400
   config.log_eval_steps = steps_per_epoch
   return config

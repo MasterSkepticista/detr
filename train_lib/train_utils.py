@@ -434,8 +434,11 @@ def log_train_summary(
     writer.write_scalars(step, train_logs)
 
     # Log to stdout
+    msg = []
     for name, value in {**train_logs, **train_metrics_summary}.items():
-      logging.info(f"\u001b[35m[{step}]\u001b[0m {name} = {value:.4f}")
+      msg.append(f"{name}={value:.4f}")
+    msg = ", ".join(msg)
+    logging.info(f"\u001b[35m[{step}]\u001b[0m {msg}")
 
   if flush_writer:
     writer.flush()
@@ -501,8 +504,11 @@ def log_eval_summary(
     writer.write_scalars(step, eval_metrics_summary)
 
     # Log to stdout
+    msg = []
     for name, value in eval_metrics_summary.items():
-      logging.info(f"\u001b[35m[{step}]\u001b[0m {name} = {value:.4f}")
+      msg.append(f"{name}={value:.4f}")
+    msg = ", ".join(msg)
+    logging.info(f"\u001b[35m[{step}]\u001b[0m {msg}")
 
   if flush_writer:
     writer.flush()
