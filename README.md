@@ -48,9 +48,9 @@ Alternatively, modify `config.pretrained_backbone_configs.checkpoint_path` in th
 |Backbone|Top-1 Acc.|Checkpoint|
 |--------|----------|----|
 |BiT-R50x1-i1k|76.8%|[Link](https://drive.google.com/file/d/1iVBV9jghBR2mseSc5z2SB1b8QptI9mju/view?usp=drive_link)|
-|R50x1-i1k|76.1%|[Link](https://drive.google.com/file/d/14N0upIZHSlFkvF4E8NNH8dxKVwS6RQjb/view?usp=drive_link)|
+|R50x1-i1k (from torchvision)|76.1%|[Link](https://drive.google.com/file/d/1q-PYc6ZshX12Nelb30V6Cp1FkmxhUdD2/view?usp=sharing) (created using this [gist](https://gist.github.com/MasterSkepticista/c854bce837a5cb5ca0489bd33b3a2259))|
 
-Checkpoints (all non-DC5 variants) created using this repository (all 300 epoch schedule):
+Checkpoints (all non-DC5 variants) using the torchvision R50 weights and a 300ep schedule (instead of 500ep from the paper):
 
 |Checkpoint|GFLOPs|$AP$|$AP_{50}$|$AP_{75}$|$AP_S$|$AP_M$|$AP_L$|
 |-|-|-|-|-|-|-|-|
@@ -76,12 +76,13 @@ $> python main.py \
 2. Replace `config.total_epochs` with `config.total_steps = 0` to skip to eval.
 
 ### Acknowledgements
-Large parts of this codebase were motivated by [scenic](https://github.com/google-research/scenic/) and 
-[big_vision](https://github.com/google-research/big_vision/).
+Large parts of this codebase were motivated by [scenic](https://github.com/google-research/scenic/).
 
-What differs here, from the implementation in [scenic](https://github.com/google-research/scenic/):
-* Supports Sinkhorn solver based on latest OTT package (at the time of writing).
+Updates:
+* Supports Sinkhorn solver based on latest OTT package (50-100% faster training for roughly same final AP).
 * Supports BigTransfer (BiT-S) ResNet-50 backbone.
+* Parallel bipartite matching for all auxiliary outputs (up to 30% faster training using Hungarian matcher).
+* Uses `optax` API.
 * Bug fixes to match official DETR implementation.
 
 ### Contributing

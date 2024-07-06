@@ -56,7 +56,16 @@ def get_coco_config():
   # Loading full model checkpoint (for transfer/eval)
   # config.init_from = ml_collections.ConfigDict()
   # config.init_from.checkpoint_path = 'artifacts/detr_r50x1_coco_640'
- 
+
+  # Pretrained checkpoints
+  config.load_pretrained_backbone = True
+  config.freeze_backbone_batch_stats = True
+  config.pretrained_backbone_configs = ml_collections.ConfigDict()
+  config.pretrained_backbone_configs.checkpoint_path = 'artifacts/r50x1_i1k_torch'
+
+  # Annotations
+  config.annotations_loc = './instances_val2017.json'
+
   # Logging/checkpointing
   config.checkpoint = True
   config.xprof = False
