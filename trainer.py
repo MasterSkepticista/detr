@@ -192,11 +192,11 @@ def make_optimizer(
   backbone_traversal = flax.traverse_util.ModelParamTraversal(
       lambda path, _: ('backbone' in path) and not is_bn(path))
   bn_traversal = flax.traverse_util.ModelParamTraversal(
-    lambda path, _: is_bn(path))
+      lambda path, _: is_bn(path))
   early_layer_traversal = flax.traverse_util.ModelParamTraversal(
-    lambda path, _: is_early_layer(path))
+      lambda path, _: is_early_layer(path))
   weight_decay_traversal = flax.traverse_util.ModelParamTraversal(
-    lambda path, _: path.endswith('kernel'))
+      lambda path, _: path.endswith('kernel'))
 
   all_false = jax.tree_util.tree_map(lambda _: False, params)
 
@@ -220,11 +220,9 @@ def make_optimizer(
           learning_rate=sched_fn,
           mask=weight_decay_mask,
           **oc.optax_kw,
-      ),
-      optax.masked(optax.scale(oc.backbone_lr_reduction), backbone_mask),
+      ), optax.masked(optax.scale(oc.backbone_lr_reduction), backbone_mask),
       optax.masked(optax.set_to_zero(), bn_mask),
-      optax.masked(optax.set_to_zero(), early_layer_mask)
-  )
+      optax.masked(optax.set_to_zero(), early_layer_mask))
   return tx, sched_fn
 
 
@@ -480,7 +478,8 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
     if (step % log_summary_steps == 0) or (step == total_steps - 1):
       ########## LOG TRAIN SUMMARY #########
-      extra_training_logs.append({"global_schedule": sched_fn_cpu(step - 1)})
+      extra_training_logs.append(
+          {"global_schedule": f"{sched_fn_cpu(step - 1):e}"})
       train_summary = train_utils.log_train_summary(
           step,
           writer=writer,
