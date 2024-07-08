@@ -18,55 +18,58 @@ This is a minimal implementation of [DETR](https://arxiv.org/abs/2005.12872) usi
   </tr>
 </table>
 
+Updates:
+* Supports Sinkhorn solver based on latest OTT package (50-100% faster training for roughly same final AP).
+* Parallel bipartite matching for all auxiliary outputs (up to 30% faster training using Hungarian matcher).
+* Uses `optax` API.
+* Bug fixes to match official DETR implementation.
+* Supports BigTransfer (BiT-S) ResNet-50 backbone.
 
 ### Getting Started
 
 * Setup:
   ```shell
-  $> git clone https://github.com/MasterSkepticista/detr.git
-  $> cd detr/
-  $> python3.10 -m venv venv
-  $> source venv/bin/activate
-  (venv) $> pip install -U pip setuptools wheel
-  (venv) $> pip install -r requirements.txt
+  $> git clone https://github.com/MasterSkepticista/detr.git && cd detr
+  # Create a python>=3.10 venv
+  $> pip install -U pip setuptools wheel
+  $> pip install -r requirements.txt
   ```
 
 * You may need to download MS-COCO dataset in TFDS. Run the following to download
 and create TFRecords:
   ```shell
-  (venv) $> python -c "import tensorflow_datasets as tfds; tfds.load('coco/2017')"
+  $> python -c "import tensorflow_datasets as tfds; tfds.load('coco/2017')"
   ```
 
 * Download and extract `instances_val2017.json` from [MS-COCO](https://cocodataset.org/#download) 
 in the root directory of this repo (or update `config.annotations_loc` in the config).
 
-### Checkpoints
+### Train
 
-Place these checkpoints under a new directory `artifacts` at the root of this repository.
-Alternatively, modify `config.pretrained_backbone_configs.checkpoint_path` in the chosen config file.
+Set `config.pretrained_backbone_configs.checkpoint_path` in the common config file.
 
 |Backbone|Top-1 Acc.|Checkpoint|
 |--------|----------|----|
 |BiT-R50x1-i1k|76.8%|[Link](https://drive.google.com/file/d/1iVBV9jghBR2mseSc5z2SB1b8QptI9mju/view?usp=drive_link)|
 |R50x1-i1k (from torchvision)|76.1%|[Link](https://drive.google.com/file/d/1q-PYc6ZshX12Nelb30V6Cp1FkmxhUdD2/view?usp=sharing) (created using this [gist](https://gist.github.com/MasterSkepticista/c854bce837a5cb5ca0489bd33b3a2259))|
 
-Checkpoints (all non-DC5 variants) using the torchvision R50 weights and a 300ep schedule (instead of 500ep from the paper):
-
-|Checkpoint|GFLOPs|$AP$|$AP_{50}$|$AP_{75}$|$AP_S$|$AP_M$|$AP_L$|
-|-|-|-|-|-|-|-|-|
-[DETR-R50-640](https://drive.google.com/file/d/1XYV3ULIDwa59AVYSAvBeIOFXwRR_GZ46/view?usp=sharing)|38.5|33.14|52.89|34.00|10.54|35.10|55.53|
-<!-- [DETR-R50-1333*]()|33.14|52.89|34.00|10.54|35.10|55.53| -->
-
-\*matches official DETR baseline, except for 300ep instead of 500ep.
-
-### Train
 ```shell
 # Trains the default DETR-R50-1333 model.
+# Roughly 3.5 days on 8x 3090s.
 $> python main.py \
    --config configs/hungarian.py --workdir artifacts/`date '+%m-%d_%H%M'`
 ```
 
 ### Evaluate
+Checkpoints (all non-DC5 variants) using the torchvision R50 backbone:
+
+|Checkpoint|GFLOPs|$AP$|$AP_{50}$|$AP_{75}$|$AP_S$|$AP_M$|$AP_L$|
+|-|-|-|-|-|-|-|-|
+[DETR-R50-1333*](https://drive.google.com/file/d/1fu4M3l88mhiQEUpADoUT2wrSEIZNDSqe/view?usp=sharing)|174.2|40.80|61.88|42.45|19.2|44.31|60.32|
+[DETR-R50-640](https://drive.google.com/file/d/1XYV3ULIDwa59AVYSAvBeIOFXwRR_GZ46/view?usp=sharing)|38.5|33.14|52.89|34.00|10.54|35.10|55.53|
+
+\*official DETR baseline, except that these models were trained for 300 epochs instead of 500 epochs.
+
 1. Download one of the pretrained checkpoints.
     ```python
     # In configs/common.py (or any)
@@ -78,15 +81,4 @@ $> python main.py \
 ### Acknowledgements
 Large parts of this codebase were motivated by [scenic](https://github.com/google-research/scenic/).
 
-Updates:
-* Supports Sinkhorn solver based on latest OTT package (50-100% faster training for roughly same final AP).
-* Supports BigTransfer (BiT-S) ResNet-50 backbone.
-* Parallel bipartite matching for all auxiliary outputs (up to 30% faster training using Hungarian matcher).
-* Uses `optax` API.
-* Bug fixes to match official DETR implementation.
-
-### Contributing
-I maintain this project on a best-effort basis. Please raise an issue if you face
-problems using this repository.
-
-PR contributions are welcome.
+Authors' implementation in PyTorch: [facebookresearch/detr](https://github.com/facebookresearch/detr).
