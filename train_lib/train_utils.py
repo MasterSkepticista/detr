@@ -436,7 +436,7 @@ def log_train_summary(
     # Log to stdout
     msg = []
     for name, value in {**train_logs, **train_metrics_summary}.items():
-      msg.append(f"{name}={value:.4f}")
+      msg.append(f"{name}={value:.5f}")
     msg = ", ".join(msg)
     logging.info(f"\u001b[35m[{step}]\u001b[0m {msg}")
 
@@ -506,7 +506,7 @@ def log_eval_summary(
     # Log to stdout
     msg = []
     for name, value in eval_metrics_summary.items():
-      msg.append(f"{name}={value:.4f}")
+      msg.append(f"{name}={value:.5f}")
     msg = ", ".join(msg)
     logging.info(f"\u001b[35m[{step}]\u001b[0m {msg}")
 

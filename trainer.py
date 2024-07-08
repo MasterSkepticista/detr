@@ -478,8 +478,7 @@ def train_and_evaluate(*, rng: jnp.ndarray, dataset: dataset_utils.Dataset,
 
     if (step % log_summary_steps == 0) or (step == total_steps - 1):
       ########## LOG TRAIN SUMMARY #########
-      extra_training_logs.append(
-          {"global_schedule": f"{sched_fn_cpu(step - 1):e}"})
+      extra_training_logs.append({"global_schedule": sched_fn_cpu(step - 1)})
       train_summary = train_utils.log_train_summary(
           step,
           writer=writer,
