@@ -27,6 +27,9 @@ def main(unused_argv):
   cfg = FLAGS.config
   workdir = FLAGS.workdir
 
+  if os.environ.get("OMPI_COMM_WORLD_SIZE", -1) != -1:
+    jax.distributed.initialize()
+
   # Hide any GPUs form TensorFlow. Otherwise, TF might reserve memory and make
   # it unavailable to JAX.
   tf.config.experimental.set_visible_devices([], 'GPU')

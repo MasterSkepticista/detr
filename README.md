@@ -25,24 +25,21 @@ Updates:
 * Bug fixes to match official DETR implementation.
 * Supports BigTransfer (BiT-S) ResNet-50 backbone.
 
-### Getting Started
+### Installation
 
 * Setup:
   ```shell
-  $> git clone https://github.com/MasterSkepticista/detr.git && cd detr
+  git clone https://github.com/MasterSkepticista/detr.git && cd detr
   # Create a python>=3.10 venv
-  $> pip install -U pip setuptools wheel
-  $> pip install -r requirements.txt
+  pip install -U pip setuptools wheel
+  pip install -r requirements.txt
   ```
 
 * You may need to download MS-COCO dataset in TFDS. Run the following to download
 and create TFRecords:
   ```shell
-  $> python -c "import tensorflow_datasets as tfds; tfds.load('coco/2017')"
+  python -c "import tensorflow_datasets as tfds; tfds.load('coco/2017')"
   ```
-
-* Download and extract `instances_val2017.json` from [MS-COCO](https://cocodataset.org/#download) 
-in the root directory of this repo (or update `config.annotations_loc` in the config).
 
 ### Train
 
@@ -81,4 +78,4 @@ Checkpoints (all non-DC5 variants) using the torchvision R50 backbone:
 ### Acknowledgements
 Large parts of this codebase were motivated by [scenic](https://github.com/google-research/scenic/).
 
-Authors' implementation in PyTorch: [facebookresearch/detr](https://github.com/facebookresearch/detr).
+DETR implementation in PyTorch: [facebookresearch/detr](https://github.com/facebookresearch/detr).
