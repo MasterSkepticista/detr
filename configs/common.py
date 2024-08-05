@@ -64,13 +64,13 @@ def get_coco_config():
   config.pretrained_backbone_configs.checkpoint_path = 'artifacts/r50x1_i1k_torch'
 
   # Annotations
-  config.annotations_loc = './instances_val2017.json'
+  config.annotations_loc = 'data/instances_val2017.json'
 
   # Logging/checkpointing
   config.checkpoint = True
   config.xprof = False
   config.debug = False
   config.log_large_summary_steps = 0  # 0: disable
-  config.log_summary_steps = 400
+  config.log_summary_steps = 50
   config.log_eval_steps = steps_per_epoch
   return config
