@@ -69,9 +69,12 @@ def compute_flops(flax_model_apply_fn: Callable[[jnp.ndarray], Any],
       dummy_input.append(None)
 
   analysis = jax.jit(
-      flax_model_apply_fn, backend='cpu').lower(*dummy_input).cost_analysis()
+      flax_model_apply_fn).lower(*dummy_input).compile().cost_analysis()[0]
   flops = analysis['flops']
   if fuse_multiply_add:
     flops = flops / 2.
   logging.info('GFLOPs %0.3f for input spec %s', flops / 10**9, input_spec)
+  # TODO: See if we can do FLOPs calculation on CPU. Currently we compile whenever `cudnn` FA
+  # SDPA API is used.
+  logging.warning('FLOPs are computed based on the target device, and may not be accurate.')
   return flops

@@ -109,6 +109,7 @@ def dot_product_attention(
     attn_weights = attn_weights + bias
 
   # Normalize the attention weights.
+  attn_weights = attn_weights.astype(jnp.float32)
   attn_weights = jax.nn.softmax(attn_weights).astype(dtype)
 
   if capture_attention_weights:

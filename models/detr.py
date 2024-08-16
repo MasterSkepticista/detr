@@ -253,19 +253,28 @@ class MultiHeadDotProductAttention(nn.Module):
     # Create attention masks.
     mask = None
     if key_padding_mask is not None:
-      mask = key_padding_mask[:, jnp.newaxis, jnp.newaxis, :]
+      nq, nk = query.shape[1], key.shape[1]
+      mask = key_padding_mask[:, None, None, :]
+      mask = jnp.broadcast_to(mask, (mask.shape[0], self.num_heads, nq, nk))
 
     # Apply attention
-    x = attention_layers.dot_product_attention(
-        query,
-        key,
-        value,
-        mask=mask,
-        dropout_rate=self.dropout_rate,
-        broadcast_dropout=self.broadcast_dropout,
-        dropout_rng=self.make_rng('dropout') if train else None,
-        deterministic=not train,
-        capture_attention_weights=True)
+    if False:
+      # TODO: JAX SDPA does not support attention dropout. 
+      # There is a significant performance left on the table by not using cuDNN FA, 
+      # but we have to stick to XLA version below with dropout support, for better convergence.
+      # Once JAX supports dropout in SDPA, we can switch make this default.
+      x = jax.nn.dot_product_attention(query, key, value, mask=mask, implementation="cudnn")
+    else:
+      x = attention_layers.dot_product_attention(
+          query,
+          key,
+          value,
+          mask=mask,
+          dropout_rate=self.dropout_rate,
+          broadcast_dropout=self.broadcast_dropout,
+          dropout_rng=self.make_rng('dropout') if train else None,
+          deterministic=not train,
+          capture_attention_weights=False)
 
     # back to the original inputs dimensions
     out = nn.DenseGeneral(

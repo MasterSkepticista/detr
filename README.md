@@ -18,11 +18,12 @@ This is a minimal implementation of [DETR](https://arxiv.org/abs/2005.12872) usi
   </tr>
 </table>
 
-Updates:
-* Supports Sinkhorn solver based on latest OTT package (50-100% faster training for roughly same final AP).
+Features:
+* Supports Flash Attention (up to 50% faster over and above the following optimizations).
+* Supports Sinkhorn solver (faster training for roughly the same final AP).
 * Parallel bipartite matching for all auxiliary outputs (up to 30% faster training using Hungarian matcher).
 * Uses `optax` API.
-* Bug fixes to match official DETR implementation.
+* Bug fixes from scenic to match official DETR implementation.
 * Supports BigTransfer (BiT-S) ResNet-50 backbone.
 
 ### Installation
@@ -58,9 +59,9 @@ gdown 1q-PYc6ZshX12Nelb30V6Cp1FkmxhUdD2 -O artifacts/
 |R50x1-i1k (from torchvision)|76.1%|[Link](https://drive.google.com/file/d/1q-PYc6ZshX12Nelb30V6Cp1FkmxhUdD2/view?usp=sharing) (created using this [gist](https://gist.github.com/MasterSkepticista/c854bce837a5cb5ca0489bd33b3a2259))|
 
 ```shell
-# Trains the default DETR-R50-1333 model.
-# Roughly 3.5 days on 8x 3090s.
-$> python main.py \
+# Trains the default DETR-R50-1333 model using `float32` precision.
+# ~4.5 days on 8x A6000.
+python main.py \
    --config configs/hungarian.py --workdir artifacts/`date '+%m-%d_%H%M'`
 ```
 

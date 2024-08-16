@@ -17,7 +17,7 @@ def get_coco_config():
   config.dataset_configs.shuffle_buffer_size = 10_000
 
   # Model config
-  config.model_dtype_str = 'float32'
+  config.model_dtype_str = 'float32'  # Set this to `bfloat16` for higher throughput.
   config.hidden_dim = 256
   config.num_queries = 100
   config.query_emb_size = None  # Same as hidden size.
