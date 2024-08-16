@@ -30,7 +30,7 @@ Updates:
 * Setup:
   ```shell
   git clone https://github.com/MasterSkepticista/detr.git && cd detr
-  # Create a python>=3.10 venv
+  python3.10 -m venv venv && source venv/bin/activate
   pip install -U pip setuptools wheel
   pip install -r requirements.txt
   ```
@@ -43,7 +43,12 @@ and create TFRecords:
 
 ### Train
 
-Set `config.pretrained_backbone_configs.checkpoint_path` in the common config file.
+Download torch resnet50 checkpoint from GDrive.
+
+```shell
+pip install gdown
+gdown 1q-PYc6ZshX12Nelb30V6Cp1FkmxhUdD2 -O artifacts/
+```
 
 |Backbone|Top-1 Acc.|Checkpoint|
 |--------|----------|----|
