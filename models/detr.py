@@ -259,10 +259,9 @@ class MultiHeadDotProductAttention(nn.Module):
 
     # Apply attention
     if False:
-      # TODO: JAX SDPA does not support attention dropout. 
-      # There is a significant performance left on the table by not using cuDNN FA, 
-      # but we have to stick to XLA version below with dropout support, for better convergence.
-      # Once JAX supports dropout in SDPA, we can switch make this default.
+      # TODO: Switch to JAX SDPA once dropout is supported. 
+      # There is performance left on the table by not using cuDNN FA, 
+      # but we have to stick to XLA version below with dropout, for better convergence.
       x = jax.nn.dot_product_attention(query, key, value, mask=mask, implementation="cudnn")
     else:
       x = attention_layers.dot_product_attention(

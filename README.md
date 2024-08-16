@@ -26,6 +26,8 @@ Features:
 * Bug fixes from scenic to match official DETR implementation.
 * Supports BigTransfer (BiT-S) ResNet-50 backbone.
 
+You can read more about these optimizations [here](https://masterskepticista.github.io/portfolio/detr).
+
 ### Installation
 
 * Setup:
