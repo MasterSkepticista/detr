@@ -47,6 +47,8 @@ Download torch resnet50 checkpoint from GDrive.
 
 ```shell
 pip install gdown
+
+# gdown <gdrive-file-id> -O <output-dir>
 gdown 1q-PYc6ZshX12Nelb30V6Cp1FkmxhUdD2 -O artifacts/
 ```
 
@@ -81,6 +83,9 @@ Checkpoints (all non-DC5 variants) using the torchvision R50 backbone:
 2. Replace `config.total_epochs` with `config.total_steps = 0` to skip to eval.
 
 ### Acknowledgements
-Large parts of this codebase were motivated by [scenic](https://github.com/google-research/scenic/).
+Parts of this codebase are based on [scenic](https://github.com/google-research/scenic/).
 
 DETR implementation in PyTorch: [facebookresearch/detr](https://github.com/facebookresearch/detr).
+
+### License
+MIT
