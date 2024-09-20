@@ -6,4 +6,4 @@ flax
 optax
 clu
 ott-jax
-jax[cuda12]==0.4.29
+jax[cuda12]==0.4.33
