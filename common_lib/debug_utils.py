@@ -23,7 +23,7 @@ def log_param_shapes(params: PyTree, description: Optional[str] = None) -> int:
   """
   # Log only on lead host.
   total_params = jax.tree_util.tree_reduce(
-      operator.add, jax.tree_map(lambda p: p.size, params))
+      operator.add, jax.tree.map(lambda p: p.size, params))
   if jax.process_index() == 0:
     parameter_overview.log_parameter_overview(params, msg=description)
     logging.info('Total params: %d', total_params)

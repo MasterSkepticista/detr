@@ -90,7 +90,7 @@ def maybe_pad_batch(batch: Dict[str, PyTree],
                  (array.ndim - batch_dim - 1))
     return np.pad(array, pad_width, mode='constant')
 
-  padded_batch = jax.tree_map(zero_pad, batch)
+  padded_batch = jax.tree.map(zero_pad, batch)
   padded_batch_mask = zero_pad(np.ones(unpadded_mask_shape, dtype=np.float32))
   if 'batch_mask' in padded_batch:
     padded_batch['batch_mask'] *= padded_batch_mask
@@ -102,7 +102,7 @@ def maybe_pad_batch(batch: Dict[str, PyTree],
 def tf_to_numpy(batch):
   """Converts each tf tensor in `batch` to numpy array without copy."""
   # Zero-copy conversion from tf to numpy
-  return jax.tree_map(lambda v: v._numpy(), batch)
+  return jax.tree.map(lambda v: v._numpy(), batch)
 
 
 def shard(batch, num_shards=None):
@@ -115,7 +115,7 @@ def shard(batch, num_shards=None):
   def _shard(x: jnp.ndarray):
     return x.reshape((num_shards, -1) + x.shape[1:])
 
-  batch = jax.tree_map(_shard, batch)
+  batch = jax.tree.map(_shard, batch)
   return batch
 
 

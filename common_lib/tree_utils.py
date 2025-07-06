@@ -62,7 +62,7 @@ def make_mask_trees(tree, patterns, *, log=None):
 
   # Split multimask into separate trees, one for each pattern.
   return [
-      jax.tree_map(lambda matches: matches[idx], multimask)
+      jax.tree.map(lambda matches: matches[idx], multimask)
       for idx in range(len(patterns))
   ]
 
@@ -119,7 +119,7 @@ def tree_flatten_with_names(
 
 def tree_map_with_names(f: Callable[[jnp.ndarray], jnp.ndarray], tree: PyTree,
                         *rest) -> PyTree:
-  """Like `jax.tree_map` but with a filter on the leaf path name.
+  """Like `jax.tree.map` but with a filter on the leaf path name.
   
   Args:
     f: A function that takes first paramter `name` (path-like "a/b/c"), remaining
