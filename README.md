@@ -41,7 +41,7 @@ You can read more about these optimizations [here](https://masterskepticista.git
 * You may need to download MS-COCO dataset in TFDS. Run the following to download
 and create TFRecords:
   ```shell
-  python -c "import tensorflow_datasets as tfds; tfds.load('coco/2017')"
+  python -c "import tensorflow_datasets as tfds; tfds.load('coco/2017', split=['train', 'validation'])"
   ```
 
 ### Train
